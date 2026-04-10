@@ -27,8 +27,31 @@ const routeColors = [
   '#ff6961',
 ];
 
+const STOP_SPEED_THRESHOLD = 1;
+const MIN_STOP_SAMPLES = 3;
+
+const findStops = (route) => {
+  const stops = [];
+  let i = 0;
+  while (i < route.length) {
+    if (route[i].speed <= STOP_SPEED_THRESHOLD) {
+      let j = i;
+      while (j < route.length && route[j].speed <= STOP_SPEED_THRESHOLD) j += 1;
+      if (j - i >= MIN_STOP_SAMPLES) {
+        const mid = route[Math.floor((i + j - 1) / 2)];
+        stops.push([mid.lon, mid.lat]);
+      }
+      i = j;
+    } else {
+      i += 1;
+    }
+  }
+  return stops;
+};
+
 const MapRouteTraces = ({ deviceIds }) => {
   const id = useId();
+  const stopsId = `${id}-stops`;
 
   const type = useAttributePreference('mapRouteTraces', 'all');
 
@@ -63,8 +86,34 @@ const MapRouteTraces = ({ deviceIds }) => {
           'line-opacity': ['get', 'opacity'],
         },
       });
+      map.addSource(stopsId, {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [],
+        },
+      });
+      map.addLayer({
+        source: stopsId,
+        id: stopsId,
+        type: 'circle',
+        paint: {
+          'circle-radius': 5,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1,
+          'circle-opacity': ['get', 'opacity'],
+          'circle-stroke-opacity': ['get', 'opacity'],
+        },
+      });
 
       return () => {
+        if (map.getLayer(stopsId)) {
+          map.removeLayer(stopsId);
+        }
+        if (map.getSource(stopsId)) {
+          map.removeSource(stopsId);
+        }
         if (map.getLayer(id)) {
           map.removeLayer(id);
         }
@@ -96,7 +145,7 @@ const MapRouteTraces = ({ deviceIds }) => {
           const response = await fetch(`/api/positions?${query.toString()}`);
           if (response.ok) {
             const positions = await response.json();
-            return [deviceId, positions.map((p) => [p.longitude, p.latitude])];
+            return [deviceId, positions.map((p) => ({ lon: p.longitude, lat: p.latitude, speed: p.speed }))];
           }
         } catch {
           // ignore fetch errors
@@ -129,8 +178,8 @@ const MapRouteTraces = ({ deviceIds }) => {
       const route = routesRef.current[position.deviceId];
       if (route) {
         const last = route[route.length - 1];
-        if (!last || last[0] !== position.longitude || last[1] !== position.latitude) {
-          route.push([position.longitude, position.latitude]);
+        if (!last || last.lon !== position.longitude || last.lat !== position.latitude) {
+          route.push({ lon: position.longitude, lat: position.latitude, speed: position.speed });
         }
       }
     });
@@ -140,27 +189,48 @@ const MapRouteTraces = ({ deviceIds }) => {
 
   const updateMap = () => {
     const allDeviceIds = Object.keys(routesRef.current).map(Number);
-    const features = allDeviceIds
+    const lineFeatures = [];
+    const stopFeatures = [];
+    allDeviceIds
       .filter((deviceId) => routesRef.current[deviceId]?.length > 1)
-      .map((deviceId) => {
+      .forEach((deviceId) => {
+        const route = routesRef.current[deviceId];
         const colorIndex = allDeviceIds.indexOf(deviceId) % routeColors.length;
-        return {
+        const color = devices[deviceId]?.attributes?.['web.reportColor'] || routeColors[colorIndex];
+        lineFeatures.push({
           type: 'Feature',
           geometry: {
             type: 'LineString',
-            coordinates: routesRef.current[deviceId],
+            coordinates: route.map((p) => [p.lon, p.lat]),
           },
           properties: {
-            color: devices[deviceId]?.attributes?.['web.reportColor'] || routeColors[colorIndex],
+            color,
             width: mapLineWidth,
             opacity: mapLineOpacity,
           },
-        };
+        });
+        findStops(route).forEach((coord) => {
+          stopFeatures.push({
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: coord,
+            },
+            properties: {
+              color,
+              opacity: mapLineOpacity,
+            },
+          });
+        });
       });
 
     map.getSource(id)?.setData({
       type: 'FeatureCollection',
-      features,
+      features: lineFeatures,
+    });
+    map.getSource(stopsId)?.setData({
+      type: 'FeatureCollection',
+      features: stopFeatures,
     });
   };
 
