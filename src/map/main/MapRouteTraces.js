@@ -126,9 +126,27 @@ const MapRouteTraces = ({ deviceIds }) => {
       .filter((deviceId) => (type === 'selected' ? deviceId === selectedDeviceId : true))
       .filter((deviceId) => devices[deviceId]);
 
+    // Start at 17:00 Europe/Oslo today, regardless of the user's local timezone.
     const now = new Date();
-    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const to = now.toISOString();
+    const osloDateParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Oslo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(now);
+    const year = osloDateParts.find((p) => p.type === 'year').value;
+    const month = osloDateParts.find((p) => p.type === 'month').value;
+    const day = osloDateParts.find((p) => p.type === 'day').value;
+    let fromDate = new Date(`${year}-${month}-${day}T17:00:00Z`);
+    const osloHour = parseInt(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Oslo',
+      hour: '2-digit',
+      hour12: false,
+    }).formatToParts(fromDate).find((p) => p.type === 'hour').value, 10);
+    fromDate = new Date(fromDate.getTime() - (osloHour - 17) * 3600000);
+    const from = fromDate.toISOString();
+    // No end time — use a far-future date so the API returns everything from `from` onward.
+    const to = new Date('2100-01-01T00:00:00Z').toISOString();
 
     const newIds = visibleIds.filter((deviceId) => !routesRef.current[deviceId]);
     const results = await Promise.all(
