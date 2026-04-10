@@ -28,22 +28,15 @@ const routeColors = [
 ];
 
 const STOP_SPEED_THRESHOLD = 1;
-const MIN_STOP_SAMPLES = 3;
 
 const findStops = (route) => {
   const stops = [];
-  let i = 0;
-  while (i < route.length) {
+  for (let i = 0; i < route.length; i += 1) {
     if (route[i].speed <= STOP_SPEED_THRESHOLD) {
-      let j = i;
-      while (j < route.length && route[j].speed <= STOP_SPEED_THRESHOLD) j += 1;
-      if (j - i >= MIN_STOP_SAMPLES) {
-        const mid = route[Math.floor((i + j - 1) / 2)];
-        stops.push([mid.lon, mid.lat]);
+      const prev = stops[stops.length - 1];
+      if (!prev || prev[0] !== route[i].lon || prev[1] !== route[i].lat) {
+        stops.push([route[i].lon, route[i].lat]);
       }
-      i = j;
-    } else {
-      i += 1;
     }
   }
   return stops;
