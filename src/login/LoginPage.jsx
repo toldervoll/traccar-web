@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   useMediaQuery,
   Select,
@@ -10,16 +10,12 @@ import {
   Snackbar,
   IconButton,
   Tooltip,
-  Box,
-  InputAdornment,
 } from '@mui/material';
 import CountryFlag from 'react-country-flag';
 import { makeStyles } from 'tss-react/mui';
 import CloseIcon from '@mui/icons-material/Close';
 import VpnLockIcon from '@mui/icons-material/VpnLock';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useTheme } from '@mui/material/styles';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -36,7 +32,7 @@ import {
 import LogoImage from './LogoImage';
 import { useCatch } from '../reactHelper';
 import QrCodeDialog from '../common/components/QrCodeDialog';
-import fetchOrThrow from '../common/util/fetchOrThrow';
+import PasswordField from '../common/components/PasswordField';
 
 const useStyles = makeStyles()((theme) => ({
   options: {
@@ -65,6 +61,9 @@ const useStyles = makeStyles()((theme) => ({
   link: {
     cursor: 'pointer',
   },
+  flag: {
+    marginRight: theme.spacing(1),
+  },
 }));
 
 const LoginPage = () => {
@@ -86,7 +85,6 @@ const LoginPage = () => {
   const [email, setEmail] = usePersistedState('loginEmail', '');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [showServerTooltip, setShowServerTooltip] = useState(false);
   const [showQr, setShowQr] = useState(false);
 
@@ -134,11 +132,18 @@ const LoginPage = () => {
   };
 
   const handleTokenLogin = useCatch(async (token) => {
-    const response = await fetchOrThrow(`/api/session?token=${encodeURIComponent(token)}`);
-    const user = await response.json();
-    dispatch(sessionActions.updateUser(user));
-    navigate('/');
+    const response = await fetch(`/api/session?token=${encodeURIComponent(token)}`);
+    if (response.ok) {
+      const user = await response.json();
+      dispatch(sessionActions.updateUser(user));
+      navigate('/');
+    } else if (response.status === 401) {
+      nativePostMessage('logout');
+    }
   });
+
+  const handleTokenLoginRef = useRef(handleTokenLogin);
+  handleTokenLoginRef.current = handleTokenLogin;
 
   const handleOpenIdLogin = () => {
     document.location = '/api/session/openid/auth';
@@ -147,7 +152,7 @@ const LoginPage = () => {
   useEffect(() => nativePostMessage('authentication'), []);
 
   useEffect(() => {
-    const listener = (token) => handleTokenLogin(token);
+    const listener = (token) => handleTokenLoginRef.current(token);
     handleLoginTokenListeners.add(listener);
     return () => handleLoginTokenListeners.delete(listener);
   }, []);
@@ -183,9 +188,9 @@ const LoginPage = () => {
             <Select value={language} onChange={(e) => setLocalLanguage(e.target.value)}>
               {languageList.map((it) => (
                 <MenuItem key={it.code} value={it.code}>
-                  <Box component="span" sx={{ mr: 1 }}>
+                  <span className={classes.flag}>
                     <CountryFlag countryCode={it.country} svg />
-                  </Box>
+                  </span>
                   {it.name}
                 </MenuItem>
               ))}
@@ -210,31 +215,15 @@ const LoginPage = () => {
               onChange={(e) => setEmail(e.target.value)}
               helperText={failed && 'Invalid username or password'}
             />
-            <TextField
+            <PasswordField
               required
               error={failed}
               label={t('userPassword')}
               name="password"
               value={password}
-              type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               autoFocus={!!email}
               onChange={(e) => setPassword(e.target.value)}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                        size="small"
-                      >
-                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
             />
             {codeEnabled && (
               <TextField

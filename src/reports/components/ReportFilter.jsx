@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   FormControl,
+  IconButton,
+  InputAdornment,
   InputLabel,
   Select,
   MenuItem,
@@ -11,12 +13,22 @@ import {
 } from '@mui/material';
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useTranslation } from '../../common/components/LocalizationProvider';
 import useReportStyles from '../common/useReportStyles';
 import SplitButton from '../../common/components/SplitButton';
 import SelectField from '../../common/components/SelectField';
 import { useRestriction } from '../../common/util/permissions';
 import { deviceEquality } from '../../common/util/deviceEquality';
+
+const getPeriodRange = (period) => {
+  const now = dayjs();
+  if (period === 'custom') {
+    return [now.subtract(1, 'hour').toISOString(), now.toISOString()];
+  }
+  return [now.startOf(period).toISOString(), now.endOf(period).toISOString()];
+};
 
 export const updateReportParams = (searchParams, setSearchParams, key, values) => {
   const newParams = new URLSearchParams(searchParams);
@@ -27,7 +39,7 @@ export const updateReportParams = (searchParams, setSearchParams, key, values) =
   setSearchParams(newParams, { replace: true });
 };
 
-const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, loading }) => {
+const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, loading, formats }) => {
   const { classes } = useReportStyles();
   const t = useTranslation();
 
@@ -38,36 +50,47 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
   const devices = useSelector((state) => state.devices.items, deviceEquality(['id', 'name']));
   const groups = useSelector((state) => state.groups.items);
   const deviceList = useMemo(
-    () => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)),
-    [devices],
+    () => [
+      { id: 'all', name: t('notificationAlways') },
+      ...Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)),
+    ],
+    [devices, t],
   );
   const groupList = useMemo(
     () => Object.values(groups).sort((a, b) => a.name.localeCompare(b.name)),
     [groups],
   );
 
-  const deviceIds = useMemo(() => searchParams.getAll('deviceId').map(Number), [searchParams]);
+  const deviceIds = useMemo(
+    () => searchParams.getAll('deviceId').map((it) => (it === 'all' ? it : Number(it))),
+    [searchParams],
+  );
   const groupIds = useMemo(() => searchParams.getAll('groupId').map(Number), [searchParams]);
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  const [period, setPeriod] = useState('today');
-  const [customFrom, setCustomFrom] = useState(
-    dayjs().subtract(1, 'hour').locale('en').format('YYYY-MM-DDTHH:mm'),
-  );
-  const [customTo, setCustomTo] = useState(dayjs().locale('en').format('YYYY-MM-DDTHH:mm'));
+  const [period, setPeriod] = useState(searchParams.get('period') || 'day');
+  const [range, setRange] = useState(() => (from && to ? [from, to] : getPeriodRange(period)));
   const [selectedOption, setSelectedOption] = useState('json');
 
   const [description, setDescription] = useState();
   const [calendarId, setCalendarId] = useState();
 
+  const selectedFrom = dayjs(range[0]);
+  const selectedTo = dayjs(range[1]);
+  const validRange =
+    selectedFrom.isValid() && selectedTo.isValid() && selectedTo.isAfter(selectedFrom);
+
   const evaluateDisabled = () => {
     if (deviceType === 'single' && !deviceIds.length) {
+      return true;
+    }
+    if (deviceType === 'multiple' && !deviceIds.length && !groupIds.length) {
       return true;
     }
     if (selectedOption === 'schedule' && (!description || !calendarId)) {
       return true;
     }
-    return loading;
+    return loading || (selectedOption !== 'schedule' && !validRange);
   };
   const disabled = evaluateDisabled();
   const loaded = from && to && !loading;
@@ -77,7 +100,9 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
       json: t('reportShow'),
     };
     if (onExport && loaded) {
-      result.export = t('reportExport');
+      formats.forEach((format) => {
+        result[format] = `${t('reportExport')} (${format.toUpperCase()})`;
+      });
       result.print = t('reportPrint');
     }
     if (onSchedule && !readonly) {
@@ -89,54 +114,52 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
 
   useEffect(() => {
     if (from && to) {
-      onShow({ deviceIds, groupIds, from, to });
+      onShow({ deviceIds: deviceIds.filter((it) => it !== 'all'), groupIds, from, to });
     }
-  }, [deviceIds, groupIds, from, to]);
+  }, [deviceIds, groupIds, from, to, onShow]);
+
+  const dateFormat = new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: period === 'month' ? 'long' : 'short',
+    day: period === 'month' ? undefined : 'numeric',
+  });
+  const periodLabel =
+    period === 'custom' || !validRange
+      ? t('reportCustom')
+      : dateFormat.formatRange(selectedFrom.toDate(), selectedTo.toDate());
 
   const showReport = () => {
-    let selectedFrom;
-    let selectedTo;
-    switch (period) {
-      case 'today':
-        selectedFrom = dayjs().startOf('day');
-        selectedTo = dayjs().endOf('day');
-        break;
-      case 'yesterday':
-        selectedFrom = dayjs().subtract(1, 'day').startOf('day');
-        selectedTo = dayjs().subtract(1, 'day').endOf('day');
-        break;
-      case 'thisWeek':
-        selectedFrom = dayjs().startOf('week');
-        selectedTo = dayjs().endOf('week');
-        break;
-      case 'previousWeek':
-        selectedFrom = dayjs().subtract(1, 'week').startOf('week');
-        selectedTo = dayjs().subtract(1, 'week').endOf('week');
-        break;
-      case 'thisMonth':
-        selectedFrom = dayjs().startOf('month');
-        selectedTo = dayjs().endOf('month');
-        break;
-      case 'previousMonth':
-        selectedFrom = dayjs().subtract(1, 'month').startOf('month');
-        selectedTo = dayjs().subtract(1, 'month').endOf('month');
-        break;
-      default:
-        selectedFrom = dayjs(customFrom, 'YYYY-MM-DDTHH:mm');
-        selectedTo = dayjs(customTo, 'YYYY-MM-DDTHH:mm');
-        break;
-    }
-
     const newParams = new URLSearchParams(searchParams);
+    newParams.set('period', period);
     newParams.set('from', selectedFrom.toISOString());
     newParams.set('to', selectedTo.toISOString());
     setSearchParams(newParams, { replace: true });
   };
 
+  const shiftPeriod = (direction) => {
+    const offset = selectedTo.diff(selectedFrom) * direction;
+    const start =
+      period === 'custom'
+        ? selectedFrom.add(offset, 'millisecond')
+        : selectedFrom.add(direction, period).startOf(period);
+    const end = period === 'custom' ? selectedTo.add(offset, 'millisecond') : start.endOf(period);
+    setRange([start.toISOString(), end.toISOString()]);
+  };
+
   const onSelected = (type) => {
     switch (type) {
-      case 'export':
-        onExport({ deviceIds, groupIds, from, to });
+      case 'xlsx':
+      case 'csv':
+      case 'gpx':
+      case 'kml':
+      case 'kmz':
+        onExport({
+          deviceIds: deviceIds.filter((it) => it !== 'all'),
+          groupIds,
+          from,
+          to,
+          format: type,
+        });
         break;
       case 'print':
         window.print();
@@ -150,11 +173,15 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
   const onClick = (type) => {
     switch (type) {
       case 'schedule':
-        onSchedule(deviceIds, groupIds, {
-          description,
-          calendarId,
-          attributes: {},
-        });
+        onSchedule(
+          deviceIds.filter((it) => it !== 'all'),
+          groupIds,
+          {
+            description,
+            calendarId,
+            attributes: {},
+          },
+        );
         break;
       case 'json':
       default:
@@ -169,11 +196,11 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
         <div className={classes.filterItem}>
           <SelectField
             label={t(deviceType === 'multiple' ? 'deviceTitle' : 'reportDevice')}
-            data={deviceList}
-            value={deviceType === 'multiple' ? deviceIds : deviceIds.find(() => true)}
-            placeholder={
-              deviceType === 'multiple' && !groupIds.length ? t('notificationAlways') : null
+            data={
+              deviceType === 'multiple' ? deviceList : deviceList.filter((it) => it.id !== 'all')
             }
+            value={deviceType === 'multiple' ? deviceIds : deviceIds.find(() => true)}
+            allValue="all"
             onChange={(e) => {
               const values =
                 deviceType === 'multiple' ? e.target.value : [e.target.value].filter((id) => id);
@@ -203,20 +230,48 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
       )}
       {selectedOption !== 'schedule' ? (
         <>
-          <div className={classes.filterItem}>
+          <div className={classes.filterItem} style={{ flexBasis: 220 }}>
             <FormControl fullWidth>
-              <InputLabel>{t('reportPeriod')}</InputLabel>
+              <InputLabel shrink>{t('reportPeriod')}</InputLabel>
               <Select
                 label={t('reportPeriod')}
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
+                value=""
+                displayEmpty
+                renderValue={() => periodLabel}
+                onChange={(e) => {
+                  setPeriod(e.target.value);
+                  if (e.target.value !== 'custom') {
+                    setRange(getPeriodRange(e.target.value));
+                  }
+                }}
+                startAdornment={
+                  <InputAdornment position="start">
+                    <IconButton
+                      edge="start"
+                      size="small"
+                      disabled={loading || !validRange}
+                      onClick={() => shiftPeriod(-1)}
+                    >
+                      <ChevronLeftIcon />
+                    </IconButton>
+                  </InputAdornment>
+                }
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      disabled={loading || !validRange}
+                      onClick={() => shiftPeriod(1)}
+                    >
+                      <ChevronRightIcon />
+                    </IconButton>
+                  </InputAdornment>
+                }
               >
-                <MenuItem value="today">{t('reportToday')}</MenuItem>
-                <MenuItem value="yesterday">{t('reportYesterday')}</MenuItem>
-                <MenuItem value="thisWeek">{t('reportThisWeek')}</MenuItem>
-                <MenuItem value="previousWeek">{t('reportPreviousWeek')}</MenuItem>
-                <MenuItem value="thisMonth">{t('reportThisMonth')}</MenuItem>
-                <MenuItem value="previousMonth">{t('reportPreviousMonth')}</MenuItem>
+                <MenuItem value="day">{t('reportToday')}</MenuItem>
+                <MenuItem value="week">{t('reportThisWeek')}</MenuItem>
+                <MenuItem value="month">{t('reportThisMonth')}</MenuItem>
                 <MenuItem value="custom">{t('reportCustom')}</MenuItem>
               </Select>
             </FormControl>
@@ -226,8 +281,8 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
               <TextField
                 label={t('reportFrom')}
                 type="datetime-local"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
+                value={range[0] ? selectedFrom.locale('en').format('YYYY-MM-DDTHH:mm') : ''}
+                onChange={(e) => setRange([e.target.value, range[1]])}
                 fullWidth
               />
             </div>
@@ -237,8 +292,8 @@ const ReportFilter = ({ children, onShow, onExport, onSchedule, deviceType, load
               <TextField
                 label={t('reportTo')}
                 type="datetime-local"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
+                value={range[1] ? selectedTo.locale('en').format('YYYY-MM-DDTHH:mm') : ''}
+                onChange={(e) => setRange([range[0], e.target.value])}
                 fullWidth
               />
             </div>

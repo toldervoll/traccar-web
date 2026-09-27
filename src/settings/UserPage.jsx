@@ -32,6 +32,7 @@ import { useTranslation } from '../common/components/LocalizationProvider';
 import useUserAttributes from '../common/attributes/useUserAttributes';
 import { sessionActions } from '../store';
 import SelectField from '../common/components/SelectField';
+import PasswordField from '../common/components/PasswordField';
 import SettingsMenu from './components/SettingsMenu';
 import useCommonUserAttributes from '../common/attributes/useCommonUserAttributes';
 import { useAdministrator, useRestriction, useManager } from '../common/util/permissions';
@@ -124,7 +125,7 @@ const UserPage = () => {
     item &&
     item.name &&
     item.email &&
-    (item.id || item.password) &&
+    (item.id || item.password || openIdForced) &&
     (admin || !totpForce || item.totpKey);
 
   return (
@@ -157,8 +158,7 @@ const UserPage = () => {
                 disabled={fixedEmail && item.id === currentUser.id}
               />
               {!openIdForced && (
-                <TextField
-                  type="password"
+                <PasswordField
                   onChange={(e) => setItem({ ...item, password: e.target.value })}
                   label={t('userPassword')}
                 />

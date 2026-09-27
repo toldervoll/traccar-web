@@ -30,8 +30,8 @@ const SharePage = () => {
     type === 'group' ? state.groups.items[id] : state.devices.items[id],
   );
 
-  const [expiration, setExpiration] = useState(
-    dayjs().add(1, 'week').locale('en').format('YYYY-MM-DD'),
+  const [expiration, setExpiration] = useState(() =>
+    dayjs().add(1, 'week').locale('en').format('YYYY-MM-DDTHH:mm'),
   );
   const [link, setLink] = useState();
 
@@ -60,7 +60,7 @@ const SharePage = () => {
             />
             <TextField
               label={t('userExpirationTime')}
-              type="date"
+              type="datetime-local"
               value={expiration}
               onChange={(e) => setExpiration(e.target.value)}
             />

@@ -65,6 +65,8 @@ const MainToolbar = ({
 
   const groups = useSelector((state) => state.groups.items);
   const devices = useSelector((state) => state.devices.items);
+  const devicesLoaded = useSelector((state) => state.devices.loaded);
+  const geofences = useSelector((state) => state.geofences.items);
 
   const toolbarRef = useRef();
   const inputRef = useRef();
@@ -92,7 +94,9 @@ const MainToolbar = ({
               <Badge
                 color="info"
                 variant="dot"
-                invisible={!filter.statuses.length && !filter.groups.length}
+                invisible={
+                  !filter.statuses.length && !filter.groups.length && !filter.geofences.length
+                }
               >
                 <TuneIcon fontSize="small" />
               </Badge>
@@ -170,12 +174,28 @@ const MainToolbar = ({
             </Select>
           </FormControl>
           <FormControl>
+            <InputLabel>{t('sharedGeofences')}</InputLabel>
+            <Select
+              label={t('sharedGeofences')}
+              value={filter.geofences}
+              onChange={(e) => setFilter({ ...filter, geofences: e.target.value })}
+              multiple
+            >
+              {Object.values(geofences)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((geofence) => (
+                  <MenuItem key={geofence.id} value={geofence.id}>
+                    {geofence.name}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+          <FormControl>
             <InputLabel>{t('sharedSortBy')}</InputLabel>
             <Select
               label={t('sharedSortBy')}
               value={filterSort}
               onChange={(e) => setFilterSort(e.target.value)}
-              displayEmpty
             >
               <MenuItem value="">{'\u00a0'}</MenuItem>
               <MenuItem value="name">{t('sharedName')}</MenuItem>
@@ -194,7 +214,7 @@ const MainToolbar = ({
       </Popover>
       <IconButton edge="end" onClick={() => navigate('/settings/device')} disabled={deviceReadonly}>
         <Tooltip
-          open={!deviceReadonly && Object.keys(devices).length === 0}
+          open={!deviceReadonly && devicesLoaded && Object.keys(devices).length === 0}
           title={t('deviceRegisterFirst')}
           arrow
         >

@@ -7,10 +7,6 @@ export default (t) =>
         name: t('loginLanguage'),
         type: 'string',
       },
-      mapGeofences: {
-        name: t('attributeShowGeofences'),
-        type: 'boolean',
-      },
       mapLiveRoutes: {
         name: t('mapLiveRoutes'),
         type: 'string',
@@ -77,6 +73,10 @@ export default (t) =>
       },
       openWeatherKey: {
         name: t('mapOpenWeatherKey'),
+        type: 'string',
+      },
+      ordnanceSurveyKey: {
+        name: t('mapOrdnanceSurveyKey'),
         type: 'string',
       },
       tomTomKey: {
