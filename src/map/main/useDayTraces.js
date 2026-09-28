@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FAR_FUTURE, isVan, mergeTrace, trackingWindow } from './plannedRoutes';
 
+const RETRY_MS = 15000;
+
 const toPoint = (p) => ({
   id: p.id,
   lon: p.longitude,
@@ -39,8 +41,13 @@ export default (trackWindow) => {
 
   const inWindow = (time) => from !== null && time >= from && (to === null || time <= to);
 
+  // One load per van at a time. A failed load retries, so a van is never left without
+  // its history for the evening.
   const load = async (deviceId, since) => {
     const store = storeRef.current;
+    const entry = store[deviceId];
+    if (entry.loading) return;
+    entry.loading = true;
     const query = new URLSearchParams({
       deviceId,
       from: new Date(since).toISOString(),
@@ -48,13 +55,16 @@ export default (trackWindow) => {
     });
     try {
       const response = await fetch(`/api/positions?${query}`);
-      if (response.ok && storeRef.current === store) {
-        const loaded = (await response.json()).map(toPoint).filter((p) => inWindow(p.time));
-        store[deviceId] = { trace: mergeTrace(store[deviceId]?.trace || [], loaded), loaded: true };
+      if (!response.ok) throw new Error(response.statusText);
+      const loaded = (await response.json()).map(toPoint).filter((p) => inWindow(p.time));
+      if (storeRef.current === store) {
+        entry.trace = mergeTrace(entry.trace, loaded);
         setVersion((v) => v + 1);
       }
     } catch {
-      // ignore fetch errors, the next reload fills the gap
+      setTimeout(() => storeRef.current === store && load(deviceId, since), RETRY_MS);
+    } finally {
+      entry.loading = false;
     }
   };
 
@@ -72,7 +82,7 @@ export default (trackWindow) => {
       .map(Number)
       .filter((deviceId) => !storeRef.current[deviceId])
       .forEach((deviceId) => {
-        storeRef.current[deviceId] = { trace: [], loaded: false };
+        storeRef.current[deviceId] = { trace: [], loading: false };
         load(deviceId, from);
       });
     // eslint-disable-next-line @eslint-react/exhaustive-deps
@@ -84,7 +94,7 @@ export default (trackWindow) => {
       const entry = storeRef.current[position.deviceId];
       const point = toPoint(position);
       // The store holds every device's latest position, so most of these are not new.
-      if (entry?.loaded && inWindow(point.time) && entry.trace.at(-1)?.id !== point.id) {
+      if (entry && inWindow(point.time) && entry.trace.at(-1)?.id !== point.id) {
         entry.trace = mergeTrace(entry.trace, [point]);
         changed = true;
       }

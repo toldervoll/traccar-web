@@ -315,7 +315,7 @@ export const routeStatus = (index, coverage, now) => {
       if (start === null || time < start) start = time;
     });
     let progress = length ? serviced / length : 0;
-    if (progress > 1 - 1e-9) progress = Math.min(progress, 1);
+    if (progress > 1 - 1e-9) progress = 1;
     Object.keys(shares).forEach((van) => {
       shares[van] /= length;
     });

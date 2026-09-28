@@ -18,6 +18,7 @@ import { buildMarkReport, marksFromPositions } from './manualMarks';
 import RouteLegend from './RouteLegend';
 
 const THROTTLE_MS = 3000;
+const REQUEST_TIMEOUT_MS = 10000;
 const TAP_PADDING = 12;
 const noMarks = { stretches: {}, routes: {} };
 
@@ -25,22 +26,36 @@ export const useRouteIndex = () => {
   const [routes, setRoutes] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/routes.geojson', { signal: controller.signal })
-      .then((response) => response.json())
-      .then((geojson) => setRoutes({ geojson, index: buildRouteIndex(geojson) }))
-      .catch(() => setRoutes(null));
-    return () => controller.abort();
+    let timer;
+    const load = async (attempt) => {
+      try {
+        const response = await fetch('/routes.geojson', { signal: controller.signal });
+        if (!response.ok) throw new Error(response.statusText);
+        const geojson = await response.json();
+        setRoutes({ geojson, index: buildRouteIndex(geojson) });
+      } catch {
+        // A flaky mobile network must not leave the routes blank for the evening.
+        if (!controller.signal.aborted)
+          timer = setTimeout(() => load(attempt + 1), Math.min(30, 2 ** attempt) * 1000);
+      }
+    };
+    load(1);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, []);
   return routes;
 };
 
 const send = async (body) => {
   const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   if (MARK_TARGET === 'origin' && window.location.protocol === 'https:') {
-    await fetchOrThrow(window.location.origin, { method: 'POST', headers, body });
+    await fetchOrThrow(window.location.origin, { method: 'POST', headers, body, signal });
   } else {
     // no-cors gives no status; the websocket echo shows whether it arrived
-    await fetch(INTAKE_URL, { method: 'POST', mode: 'no-cors', headers, body });
+    await fetch(INTAKE_URL, { method: 'POST', mode: 'no-cors', headers, body, signal });
   }
 };
 
@@ -65,7 +80,9 @@ const useManualMarks = ({ from, to, now }, routes) => {
       from: new Date(from).toISOString(),
       to: to ? new Date(to).toISOString() : FAR_FUTURE,
     });
-    const response = await fetch(`/api/positions?${query}`);
+    const response = await fetch(`/api/positions?${query}`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
     const loaded = response.ok ? await response.json() : null;
     if (loaded && current === loadRef.current) setPositions(loaded);
   };
@@ -85,7 +102,8 @@ const useManualMarks = ({ from, to, now }, routes) => {
 
   const report = async (mark) => {
     await send(buildMarkReport({ uniqueId: markDevice.uniqueId, ...mark }));
-    await load();
+    // The mark is sent; a failed reload is caught up by the websocket echo.
+    await load().catch(() => {});
   };
 
   return {
@@ -202,7 +220,7 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
       await report(mark);
       setMenu(null);
     } catch (e) {
-      setError(e.message || 'Markering feilet');
+      setError(`Markering feilet (${e.message || 'ukjent feil'}). Prøv igjen.`);
     } finally {
       setPending(false);
     }

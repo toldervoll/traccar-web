@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  FALLBACK_COLORS,
   ROUTE_COLORS,
   isVan,
   mainRouteOf,
@@ -20,7 +21,8 @@ test('mainRouteOf parses the route attribute', () => {
 test('vanColor: report color, then route color, then palette', () => {
   assert.equal(vanColor(device({ 'web.reportColor': '#123456', route: 2 })), '#123456');
   assert.equal(vanColor(device({ route: 2 })), ROUTE_COLORS[2]);
-  assert.match(vanColor(device({}, 5)), /^#[0-9a-f]{6}$/i);
+  assert.equal(vanColor(device({}, 5)), FALLBACK_COLORS[5]);
+  assert.ok(!Object.values(ROUTE_COLORS).includes(vanColor(device({}, 5))));
 });
 
 test('isVan is false for the manual marks device', () => {
@@ -80,4 +82,18 @@ test('mergeTrace gives the same trace one position at a time as all at once', ()
   );
   const oneByOne = positions.reduce((trace, q) => mergeTrace(trace, [q]), []);
   assert.deepEqual(oneByOne, mergeTrace([], positions));
+});
+
+test('trackingWindow ignores a from or to that is not a date', () => {
+  const now = new Date('2026-10-09T18:00:00+02:00');
+  assert.equal(trackingWindow(now, '?from=garbage').from.toISOString(), '2026-10-09T15:00:00.000Z');
+  assert.equal(trackingWindow(now, '?from=2026-04-10T15:00:00Z&to=garbage').to, null);
+});
+
+test('mergeTrace keeps the last point of a dwell before the van moves on', () => {
+  const merged = mergeTrace([], [p(1, 0, 0), p(2, 1, 60000), p(3, 2, 120000), p(4, 80, 130000)]);
+  assert.deepEqual(
+    merged.map((q) => q.id),
+    [1, 3, 4],
+  );
 });

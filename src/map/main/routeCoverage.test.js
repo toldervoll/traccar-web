@@ -470,3 +470,29 @@ test('slow driving services the street, normal driving does not', () => {
   assert.ok(from <= 20 && to >= 480, `${from}-${to}`);
   assert.equal(servicedRange(idx, computeCoverage(idx, { 1: trace([['drive', 1000, 0]]) })), null);
 });
+
+test('a stop survives trace thinning when the phone reports every 10 s', async () => {
+  const { mergeTrace } = await import('./plannedRoutes.js');
+  const idx = index();
+  const sparse = trace([
+    ['drive', 300, 0],
+    ['wait', 120],
+    ['drive', 1000, 0],
+  ]).filter((_, i) => i % 10 === 0);
+  assert.equal(detectStops(sparse, idx).length, 1);
+  const bulk = mergeTrace([], sparse);
+  const live = sparse.reduce((t, q) => mergeTrace(t, [q]), []);
+  assert.equal(detectStops(bulk, idx).length, 1);
+  assert.deepEqual(live, bulk);
+});
+
+test('a route closed by hand is exactly 100% on the real route file', async () => {
+  const { readFileSync } = await import('node:fs');
+  const geojson = JSON.parse(
+    readFileSync(new URL('../../../public/routes.geojson', import.meta.url)),
+  );
+  const idx = buildRouteIndex(geojson);
+  const routes = Object.fromEntries(Object.keys(idx.routes).map((r) => [r, T0]));
+  const status = routeStatus(idx, computeCoverage(idx, {}, { stretches: {}, routes }), T0);
+  Object.values(status).forEach((s) => assert.equal(s.progress, 1));
+});

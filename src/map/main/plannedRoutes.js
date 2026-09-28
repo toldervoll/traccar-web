@@ -1,5 +1,6 @@
-// Route colors and tuning constants for the planned routes. Pure module: no app
-// imports, so node --test and the route editor can import it.
+// Planned routes: colors, tuning constants, the tracking window, van helpers, trace
+// merging and the manual-mark transport settings. Pure module: no app imports, so
+// node --test and the route editor can import it.
 
 export const ROUTE_COLORS = {
   1: '#e6194b',
@@ -90,11 +91,10 @@ const osloFivePm = (date) => {
 // it has not started (from is null). The URL parameters from and to override it.
 export const trackingWindow = (now = new Date(), search = window.location.search) => {
   const params = new URLSearchParams(search);
-  if (params.get('from')) {
-    return {
-      from: new Date(params.get('from')),
-      to: params.get('to') ? new Date(params.get('to')) : null,
-    };
+  const from = new Date(params.get('from'));
+  if (params.get('from') && !Number.isNaN(from.getTime())) {
+    const to = new Date(params.get('to'));
+    return { from, to: params.get('to') && !Number.isNaN(to.getTime()) ? to : null };
   }
   const { hour } = osloParts(now);
   if (hour >= 4 && hour < 17) return { from: null, to: null };
@@ -115,12 +115,17 @@ export const meters = (a, b) =>
   Math.hypot((a.lon - b.lon) * Math.cos((a.lat * Math.PI) / 180), a.lat - b.lat) * 111320;
 
 // Merges new positions into a trace: time order, no duplicate ids, and a position
-// kept only when it is THIN_STEP_M from the last kept one. The latest is always kept.
+// kept only when it is THIN_STEP_M from the last kept one or from the next one. The
+// latest is always kept. Keeping the last point before a move keeps the end of a
+// dwell, which stop detection needs when the phone reports only every few seconds.
 export const mergeTrace = (trace, positions) => {
   // Fast path for one newer position, the common websocket case: same result as below.
   const last = trace[trace.length - 1];
   if (positions.length === 1 && last && positions[0].time > last.time) {
-    const keepLast = trace.length === 1 || meters(last, trace[trace.length - 2]) >= THIN_STEP_M;
+    const keepLast =
+      trace.length === 1 ||
+      meters(last, trace[trace.length - 2]) >= THIN_STEP_M ||
+      meters(positions[0], last) >= THIN_STEP_M;
     return [...trace.slice(0, -1), ...(keepLast ? [last] : []), positions[0]];
   }
   const byId = new Map([...trace, ...positions].map((q) => [q.id, q]));
@@ -130,7 +135,8 @@ export const mergeTrace = (trace, positions) => {
     if (
       !kept.length ||
       i === sorted.length - 1 ||
-      meters(q, kept[kept.length - 1]) >= THIN_STEP_M
+      meters(q, kept[kept.length - 1]) >= THIN_STEP_M ||
+      meters(sorted[i + 1], q) >= THIN_STEP_M
     ) {
       kept.push(q);
     }
