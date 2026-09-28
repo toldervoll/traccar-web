@@ -126,6 +126,7 @@ ways.forEach((way) => {
         stretches.push({
           id: `${way.id}-${index}`,
           name: way.tags.name || '',
+          tags: way.tags,
           coords: coords.map(round),
         });
         index += 1;
@@ -137,27 +138,72 @@ ways.forEach((way) => {
 
 const middle = (s) => s.coords[Math.floor(s.coords.length / 2)];
 
+// Every street inside a route's zone belongs to that route (routes/route-streets.json).
+// Near a zone border, a street named in a route's `streets` wins; `force` entries
+// [name, west, south, east, north] assign a street to a route whatever its zone.
 const config = JSON.parse(readFileSync('routes/route-streets.json', 'utf8'));
+const BORDER_M = 40;
+const NOT_ROUTE_STREETS = ['Kaj Munks vei', 'Rolf Wickstrøms vei', 'Tåsentunnelen', 'Tåsenkrysset'];
+
+const inside = ([x, y], polygon) => {
+  let result = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) result = !result;
+  }
+  return result;
+};
+
+const toBorder = (p, polygon) =>
+  Math.min(
+    ...polygon.map((a, i) => {
+      const b = polygon[(i + 1) % polygon.length];
+      const k = Math.cos((p[1] * Math.PI) / 180);
+      const [ax, ay, bx, by, px, py] = [a[0] * k, a[1], b[0] * k, b[1], p[0] * k, p[1]];
+      const [dx, dy] = [bx - ax, by - ay];
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+      return Math.hypot(px - ax - t * dx, py - ay - t * dy) * 111320;
+    }),
+  );
+
+const inBox = ([x, y], [west, south, east, north]) =>
+  x >= west && x <= east && y >= south && y <= north;
+
+const routeOf = (s) => {
+  const p = middle(s);
+  const routes = Object.entries(config);
+  const forced = routes.find(([, { force = [] }]) =>
+    force.some(([name, ...box]) => name === s.name && inBox(p, box)),
+  );
+  if (forced) return forced[0];
+  const { tunnel, name } = s.tags;
+  if (NOT_ROUTE_STREETS.includes(name) || tunnel === 'yes') return null;
+  const candidates = routes.filter(
+    ([, { zone }]) => inside(p, zone) || toBorder(p, zone) < BORDER_M,
+  );
+  if (candidates.length > 1) {
+    const named = candidates.filter(([, { streets = [] }]) => streets.includes(s.name));
+    if (named.length === 1) return named[0][0];
+  }
+  const home = candidates.find(([, { zone }]) => inside(p, zone));
+  return home ? home[0] : null;
+};
+
 const routeFeatures = [];
-// A street is a name, or [name, west, south, east, north] to use its own box
-// instead of the route's box.
-Object.entries(config).forEach(([route, { box, streets }]) => {
-  streets.forEach((street) => {
-    const [name, ...own] = Array.isArray(street) ? street : [street];
-    const [west, south, east, north] = own.length ? own : box;
-    const matches = stretches.filter((s) => {
-      const [x, y] = middle(s);
-      return s.name === name && x >= west && x <= east && y >= south && y <= north;
+stretches.forEach((s) => {
+  const route = routeOf(s);
+  if (route) {
+    routeFeatures.push({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: s.coords },
+      properties: { id: s.id, route: Number(route), name: s.name },
     });
-    matches.forEach((s) => {
-      routeFeatures.push({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: s.coords },
-        properties: { id: s.id, route: Number(route), name: s.name },
-      });
-    });
-    console.log(`route ${route}: ${name}: ${matches.length || 'NO MATCH'}`);
-  });
+  }
+});
+Object.keys(config).forEach((route) => {
+  const count = routeFeatures.filter((f) => f.properties.route === Number(route)).length;
+  console.log(`route ${route}: ${count} stretches`);
 });
 
 const area = routeFeatures.flatMap((f) => f.geometry.coordinates);
