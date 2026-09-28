@@ -12,6 +12,8 @@ import {
   SAMPLE_STEP_M,
   SERVICE_REACH_M,
   SIGNAL_RADIUS_M,
+  SLOW_DRIVE_SPEED,
+  SLOW_SEG_MAX_M,
   STOP_MAX_S,
   STOP_MAX_SPEED,
   STOP_MIN_S,
@@ -227,9 +229,34 @@ const mark = (coverage, i, van, time) => {
 // marks: { stretches: { stretchId: time }, routes: { route: time } }, the marks that are on.
 export const computeCoverage = (index, traces, marks = { stretches: {}, routes: {} }) => {
   const coverage = new Array(index.samples.length);
+  const markNear = (van, time, ax, ay, bx, by) => {
+    queryGrid(index.grid, ax, ay, bx, by, COVER_RADIUS_M).forEach((s) => {
+      const sample = index.samples[s];
+      if (segmentDistance(sample.x, sample.y, ax, ay, bx, by) <= COVER_RADIUS_M) {
+        mark(coverage, s, van, time);
+      }
+    });
+  };
   Object.entries(traces).forEach(([van, trace]) => {
     const prepared = prepare(trace);
     const { points, cum } = prepared;
+    // Slow driving away from the base counts as service: vans crawl while collecting.
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const length = cum[i + 1] - cum[i];
+      const dt = (points[i + 1].time - points[i].time) / 1000;
+      const [a, b] = [points[i].xy, points[i + 1].xy];
+      const middle = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      if (
+        dt > 0 &&
+        length > 0 &&
+        length <= SLOW_SEG_MAX_M &&
+        length / dt < SLOW_DRIVE_SPEED &&
+        i > 0 &&
+        Math.hypot(middle[0] - BASE_XY[0], middle[1] - BASE_XY[1]) > BASE_RADIUS_M
+      ) {
+        markNear(van, points[i].time, a[0], a[1], b[0], b[1]);
+      }
+    }
     const stops = findStops(prepared, index).filter((stop) => !stop.traffic);
     stops.forEach((stop, k) => {
       const from = stop.startAt - SERVICE_REACH_M;
@@ -244,11 +271,7 @@ export const computeCoverage = (index, traces, marks = { stretches: {}, routes: 
           const t1 = length ? Math.min(1, (to - cum[i]) / length) : 1;
           const [ax, ay] = [a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0];
           const [bx, by] = [a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1];
-          queryGrid(index.grid, ax, ay, bx, by, COVER_RADIUS_M).forEach((s) => {
-            const sample = index.samples[s];
-            if (segmentDistance(sample.x, sample.y, ax, ay, bx, by) <= COVER_RADIUS_M)
-              mark(coverage, s, van, stop.start);
-          });
+          markNear(van, stop.start, ax, ay, bx, by);
         }
       }
     });

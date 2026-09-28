@@ -13,15 +13,16 @@ export const ROUTE_COLORS = {
 
 export const MANUAL_COLOR = '#757575';
 
-// Start values from the April 2026 event, see the plan's Tuning Constants.
-export const STOP_MAX_SPEED = 1.5; // m/s
+// Calibrated against the April 2026 event (all routes finished 23:00-24:00): stops
+// alone reached 80-94% on the routes whose vans reported often, so slow driving counts too.
+export const STOP_MAX_SPEED = 2.5; // m/s
 export const STOP_SEG_MAX_M = 60;
-export const STOP_MIN_S = 40;
+export const STOP_MIN_S = 20;
 export const STOP_MAX_S = 1200;
 export const INTERSECTION_RADIUS_M = 25;
 export const SIGNAL_RADIUS_M = 40;
 export const TRAFFIC_MAX_S = 120;
-export const SERVICE_REACH_M = 75;
+export const SERVICE_REACH_M = 100;
 export const LINK_MAX_M = 300;
 export const COVER_RADIUS_M = 20;
 export const SAMPLE_STEP_M = 10;
@@ -29,6 +30,8 @@ export const BASE = [10.751, 59.9535]; // lon, lat: Tåsen skole
 export const BASE_RADIUS_M = 150;
 export const THIN_STEP_M = 5;
 export const MAX_GAP_M = 500;
+export const SLOW_DRIVE_SPEED = 3; // m/s, about 11 km/h
+export const SLOW_SEG_MAX_M = 100;
 
 export const ETA_MIN_PROGRESS = 0.2;
 export const STRIPE_WIDTH = 8;

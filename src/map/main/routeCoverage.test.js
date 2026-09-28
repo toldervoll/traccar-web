@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { COVER_RADIUS_M, SERVICE_REACH_M, STOP_MIN_S } from './plannedRoutes.js';
 import {
   buildRouteIndex,
   detectStops,
@@ -90,8 +91,14 @@ test('AE2: two close stops service the path between them and the reach beyond', 
   ]);
   assert.equal(detectStops(t, idx).length, 2);
   const [from, to] = servicedRange(idx, computeCoverage(idx, { 1: t }));
-  assert.ok(from <= 130 && from >= 110, `from ${from}`);
-  assert.ok(to >= 420 && to <= 440, `to ${to}`);
+  assert.ok(
+    from >= 200 - SERVICE_REACH_M - COVER_RADIUS_M && from <= 200 - SERVICE_REACH_M + 5,
+    `from ${from}`,
+  );
+  assert.ok(
+    to <= 350 + SERVICE_REACH_M + COVER_RADIUS_M && to >= 350 + SERVICE_REACH_M - 5,
+    `to ${to}`,
+  );
 });
 
 test('two stops 600 m apart service only the reach around each', () => {
@@ -149,7 +156,7 @@ test('AE5: a long dwell at the base gives no stop', () => {
   );
 });
 
-test('dwell length limits: 20 s no stop, 45 s stop, 25 min no stop', () => {
+test('dwell length limits: just under and over STOP_MIN_S, and 25 min', () => {
   const idx = index();
   const run = (s) =>
     detectStops(
@@ -160,8 +167,8 @@ test('dwell length limits: 20 s no stop, 45 s stop, 25 min no stop', () => {
       ]),
       idx,
     ).length;
-  assert.equal(run(20), 0);
-  assert.equal(run(45), 1);
+  assert.equal(run(STOP_MIN_S - 5), 0);
+  assert.equal(run(STOP_MIN_S + 5), 1);
   assert.equal(run(25 * 60), 0);
 });
 
@@ -449,4 +456,17 @@ test('servicedFeatures draws one stripe per servicer, side by side', () => {
   );
   assert.equal(manual.length, 1);
   assert.equal(manual[0].properties.offset, 0);
+});
+
+test('slow driving services the street, normal driving does not', () => {
+  const idx = index();
+  const slow = [];
+  let t = T0;
+  for (let x = 0; x <= 500; x += 2.8) {
+    t += 1000;
+    slow.push({ id: slow.length + 1, lon: pt(x, 0)[0], lat: pt(x, 0)[1], time: t });
+  }
+  const [from, to] = servicedRange(idx, computeCoverage(idx, { 1: slow }));
+  assert.ok(from <= 20 && to >= 480, `${from}-${to}`);
+  assert.equal(servicedRange(idx, computeCoverage(idx, { 1: trace([['drive', 1000, 0]]) })), null);
 });

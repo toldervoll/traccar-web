@@ -158,6 +158,8 @@ Driving past a house is not the same as servicing it. A full van drives past pic
   - When `to` is set, the ETA uses `to` as `now`. With the April event's window, the app shows that evening's result.
 - KTD16. **Tests run with `node --test` on pure modules.** `plannedRoutes.js`, `routeCoverage.js` and `manualMarks.js` import each other with explicit `.js` extensions, import no app module, and read `window` only inside functions. Tests use synthetic traces only; no real GPS data is committed.
 
+- KTD18. **Slow driving also counts as service.** (session-settled: user-directed, 2026-09-28 — chosen over stops alone after the April replay: with stops only, the routes whose vans reported often ended at 80–94%, although all routes were finished, and over 90% of the missing parts of routes 3 and 4 had been driven by a van.) A trace segment of at most `SLOW_SEG_MAX_M` driven slower than `SLOW_DRIVE_SPEED`, outside the base radius, services the route samples within `COVER_RADIUS_M`. This relaxes R6: a van that crawls past without picking up also counts.
+
 ### Tuning Constants
 
 The start values come from an analysis of the April event (2026-04-10). U4 checks them on the map against the routes and against what the user remembers of the evening.
@@ -642,6 +644,7 @@ Checklist before each event:
   - The server has 2 users: one administrator and one read-only account.
   - Traffic stops: 28% of the driven path lies within 25 m of an intersection, but only 14–24% of the stops do. 3 of 317 stops were within 40 m of a traffic light. 27 stops were isolated, 10 of those at an intersection or traffic light, and 8 of those 10 lasted under 2 minutes.
   - A test phone on 2026-09-27 reported every 2 to 15 minutes while standing still. The April vans kept reporting once per second when stopped. The dwell rule of KTD4 covers both, as long as the first position after a stop lies within `STOP_SEG_MAX_M`.
+- The user on the April event (2026-09-28): all routes were finished, roughly between 23:00 and 24:00. The calibrated values in `src/map/main/plannedRoutes.js` are `STOP_MIN_S` 20 s, `STOP_MAX_SPEED` 2.5 m/s, `SERVICE_REACH_M` 100 m, `SLOW_DRIVE_SPEED` 3 m/s and `SLOW_SEG_MAX_M` 100 m. With them, the April replay reaches 86–96% on routes 1–5 at 22:00; routes 6 and 7 stay low because Bil 6 and Bil 7 barely reported.
 - `src/other/EmulatorPage.jsx`: sends OsmAnd reports from the browser. On https it posts form-encoded to the page's own origin.
 - `src/main/useFilter.js`: applies the device filter to the map positions only when the map filter is on. `src/main/MainPage.jsx` has it off by default.
 - Traccar server, `OsmAndProtocolDecoder`: stores unknown request parameters as position attributes, as number, boolean or string. It accepts the parameters in the query string or the request body. A report without a time gets the server's time.
