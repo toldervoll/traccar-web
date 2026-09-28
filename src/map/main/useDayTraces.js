@@ -98,7 +98,7 @@ export default (trackWindow) => {
   useEffect(() => {
     const reload = () => {
       Object.entries(storeRef.current).forEach(([deviceId, entry]) => {
-        if (entry.loaded) load(deviceId, entry.trace.at(-1)?.time ?? from);
+        if (from !== null) load(deviceId, entry.trace.at(-1)?.time ?? from);
       });
     };
     if (socket) reload();

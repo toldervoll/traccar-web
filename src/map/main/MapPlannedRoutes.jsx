@@ -5,7 +5,7 @@ import { Menu, MenuItem } from '@mui/material';
 import { map } from '../core/MapView';
 import useMapLayer from '../core/useMapLayer';
 import fetchOrThrow from '../../common/util/fetchOrThrow';
-import { INTAKE_URL, ROUTE_COLORS, isVan, vanColor } from './plannedRoutes';
+import { INTAKE_URL, MARK_TARGET, ROUTE_COLORS, isVan, vanColor } from './plannedRoutes';
 import { buildRouteIndex, computeCoverage, routeStatus, servicedFeatures } from './routeCoverage';
 import { buildMarkReport, marksFromPositions } from './manualMarks';
 import RouteLegend from './RouteLegend';
@@ -29,7 +29,7 @@ export const useRouteIndex = () => {
 
 const send = async (body) => {
   const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-  if (window.location.protocol === 'https:') {
+  if (MARK_TARGET === 'origin' && window.location.protocol === 'https:') {
     await fetchOrThrow(window.location.origin, { method: 'POST', headers, body });
   } else {
     // ponytail: no-cors gives no status; the websocket echo shows whether it arrived
@@ -233,7 +233,8 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
   });
 
   const toggleRoute = (route) => {
-    const sample = routes.index.samples[routes.index.routes[route].samples[0]];
+    const sample = routes.index.samples[routes.index.routes[route]?.samples[0]];
+    if (!sample) return undefined;
     return run({
       lon: sample.lon,
       lat: sample.lat,

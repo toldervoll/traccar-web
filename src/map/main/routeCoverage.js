@@ -104,7 +104,10 @@ export const buildRouteIndex = (geojson) => {
       return;
     }
     if (geometry.type !== 'LineString') return;
-    const coords = geometry.coordinates;
+    // Every stretch runs west to east (south to north), so stripes keep their side.
+    const [first, last] = [geometry.coordinates[0], geometry.coordinates.at(-1)];
+    const reversed = first[0] > last[0] || (first[0] === last[0] && first[1] > last[1]);
+    const coords = reversed ? [...geometry.coordinates].reverse() : geometry.coordinates;
     const xy = coords.map(project);
     const cum = cumulative(xy);
     const length = cum[cum.length - 1];
@@ -328,10 +331,7 @@ export const servicedFeatures = (index, coverage, colorOf) => {
         if (first !== null && (i === entries.length - 1 || !has(entries[i + 1]))) {
           const from = index.samples[stretch.samples[first]].from;
           const to = index.samples[stretch.samples[i]].to;
-          let coordinates = slice(stretch.coords, stretch.cum, from, to);
-          // Same orientation for every run, so a van's stripe keeps its side.
-          if (coordinates[0][0] > coordinates[coordinates.length - 1][0])
-            coordinates = coordinates.reverse();
+          const coordinates = slice(stretch.coords, stretch.cum, from, to);
           features.push({
             type: 'Feature',
             geometry: { type: 'LineString', coordinates },

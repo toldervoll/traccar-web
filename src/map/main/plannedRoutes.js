@@ -125,5 +125,8 @@ export const mergeTrace = (trace, positions) => {
   return kept;
 };
 
-// OsmAnd intake for manual marks when the page is not served over https (dev server).
+// OsmAnd intake for manual marks. MARK_TARGET 'origin' posts to the page's own origin
+// over https, as the emulator does; set it to 'intake' if the web origin rejects reports.
+// A page served over http (the dev server) always uses the intake.
 export const INTAKE_URL = 'https://inntak.koredu.no/';
+export const MARK_TARGET = 'origin';
