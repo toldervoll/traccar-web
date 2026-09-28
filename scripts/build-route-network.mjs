@@ -141,6 +141,8 @@ const middle = (s) => s.coords[Math.floor(s.coords.length / 2)];
 // Every street inside a route's zone belongs to that route (routes/route-streets.json).
 // Near a zone border, a street named in a route's `streets` wins; `force` entries
 // [name, west, south, east, north] assign a street to a route whatever its zone.
+// `drop` and `add` list stretch ids that are, or are not, highlighted on the scanned
+// route map; they were found by aligning each scan with the route's named streets.
 const config = JSON.parse(readFileSync('routes/route-streets.json', 'utf8'));
 const BORDER_M = 40;
 const NOT_ROUTE_STREETS = ['Kaj Munks vei', 'Rolf Wickstrøms vei', 'Tåsentunnelen', 'Tåsenkrysset'];
@@ -173,6 +175,13 @@ const inBox = ([x, y], [west, south, east, north]) =>
 const routeOf = (s) => {
   const p = middle(s);
   const routes = Object.entries(config);
+  const added = routes.find(([, { add = [] }]) => add.includes(s.id));
+  if (added) return added[0];
+  const zoned = zoneRouteOf(s, p, routes);
+  return zoned && !config[zoned].drop?.includes(s.id) ? zoned : null;
+};
+
+const zoneRouteOf = (s, p, routes) => {
   const forced = routes.find(([, { force = [] }]) =>
     force.some(([name, ...box]) => name === s.name && inBox(p, box)),
   );
