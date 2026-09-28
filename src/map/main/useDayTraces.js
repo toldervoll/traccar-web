@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { isVan, mergeTrace, trackingWindow } from './plannedRoutes';
+import { FAR_FUTURE, isVan, mergeTrace, trackingWindow } from './plannedRoutes';
 
-const FAR_FUTURE = '2100-01-01T00:00:00Z';
-
-export const toPoint = (p) => ({
+const toPoint = (p) => ({
   id: p.id,
   lon: p.longitude,
   lat: p.latitude,
@@ -85,7 +83,8 @@ export default (trackWindow) => {
     Object.values(positions).forEach((position) => {
       const entry = storeRef.current[position.deviceId];
       const point = toPoint(position);
-      if (entry?.loaded && inWindow(point.time)) {
+      // The store holds every device's latest position, so most of these are not new.
+      if (entry?.loaded && inWindow(point.time) && entry.trace.at(-1)?.id !== point.id) {
         entry.trace = mergeTrace(entry.trace, [point]);
         changed = true;
       }

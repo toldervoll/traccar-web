@@ -73,3 +73,11 @@ test('mergeTrace orders by time, drops duplicate ids and thins', () => {
     [1, 2, 3, 5],
   );
 });
+
+test('mergeTrace gives the same trace one position at a time as all at once', () => {
+  const positions = [0, 1, 2, 8, 9, 9.5, 20, 21, 40, 40.2, 40.4, 60].map((x, i) =>
+    p(i + 1, x, i * 1000),
+  );
+  const oneByOne = positions.reduce((trace, q) => mergeTrace(trace, [q]), []);
+  assert.deepEqual(oneByOne, mergeTrace([], positions));
+});

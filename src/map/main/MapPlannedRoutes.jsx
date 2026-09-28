@@ -5,7 +5,14 @@ import { Menu, MenuItem } from '@mui/material';
 import { map } from '../core/MapView';
 import useMapLayer from '../core/useMapLayer';
 import fetchOrThrow from '../../common/util/fetchOrThrow';
-import { INTAKE_URL, MARK_TARGET, ROUTE_COLORS, isVan, vanColor } from './plannedRoutes';
+import {
+  FAR_FUTURE,
+  INTAKE_URL,
+  MARK_TARGET,
+  isVan,
+  routeColorExpression,
+  vanColor,
+} from './plannedRoutes';
 import { buildRouteIndex, computeCoverage, routeStatus, servicedFeatures } from './routeCoverage';
 import { buildMarkReport, marksFromPositions } from './manualMarks';
 import RouteLegend from './RouteLegend';
@@ -32,7 +39,7 @@ const send = async (body) => {
   if (MARK_TARGET === 'origin' && window.location.protocol === 'https:') {
     await fetchOrThrow(window.location.origin, { method: 'POST', headers, body });
   } else {
-    // ponytail: no-cors gives no status; the websocket echo shows whether it arrived
+    // no-cors gives no status; the websocket echo shows whether it arrived
     await fetch(INTAKE_URL, { method: 'POST', mode: 'no-cors', headers, body });
   }
 };
@@ -56,7 +63,7 @@ const useManualMarks = ({ from, to, now }, routes) => {
     const query = new URLSearchParams({
       deviceId: markDevice.id,
       from: new Date(from).toISOString(),
-      to: new Date(to ?? Date.parse('2100-01-01')).toISOString(),
+      to: to ? new Date(to).toISOString() : FAR_FUTURE,
     });
     const response = await fetch(`/api/positions?${query}`);
     const loaded = response.ok ? await response.json() : null;
@@ -119,18 +126,12 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
   const bandId = useMapLayer({
     layers: [
       {
-        key: 'band',
         type: 'line',
         filter: ['==', '$type', 'LineString'],
         metadata: { 'traccar:title': 'Planlagte ruter' },
         layout: { 'line-cap': 'butt', 'line-join': 'round' },
         paint: {
-          'line-color': [
-            'match',
-            ['get', 'route'],
-            ...Object.entries(ROUTE_COLORS).flatMap(([route, color]) => [Number(route), color]),
-            '#000000',
-          ],
+          'line-color': routeColorExpression('#000000'),
           'line-width': 12,
           'line-opacity': 0.3,
         },
@@ -174,7 +175,7 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
           [x - TAP_PADDING, y - TAP_PADDING],
           [x + TAP_PADDING, y + TAP_PADDING],
         ],
-        { layers: [`${bandId}-band`] },
+        { layers: [bandId] },
       );
       const unique = [
         ...new Map(

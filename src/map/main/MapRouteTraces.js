@@ -2,13 +2,10 @@ import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import useMapLayer from '../core/useMapLayer';
 import { useAttributePreference } from '../../common/util/preferences';
-import { MAX_GAP_M, vanColor } from './plannedRoutes';
+import { MAX_GAP_M, meters, vanColor } from './plannedRoutes';
 import { buildRouteIndex, detectStops } from './routeCoverage';
 
 const noRoutes = buildRouteIndex({ features: [] });
-
-const meters = (a, b) =>
-  Math.hypot((a.lon - b.lon) * Math.cos((a.lat * Math.PI) / 180), a.lat - b.lat) * 111320;
 
 // A trace split where the phone jumped more than MAX_GAP_M, so gaps show as gaps.
 const traceParts = (trace) => {
@@ -18,6 +15,22 @@ const traceParts = (trace) => {
     parts[parts.length - 1].push([p.lon, p.lat]);
   });
   return parts.filter((part) => part.length > 1);
+};
+
+// Geometry per route index and trace array. A van's trace array only changes when
+// the van gets a new position, so the other vans are not recomputed.
+const caches = new WeakMap();
+const geometry = (trace, routeIndex) => {
+  const index = routeIndex || noRoutes;
+  if (!caches.has(index)) caches.set(index, new WeakMap());
+  const cache = caches.get(index);
+  if (!cache.has(trace)) {
+    cache.set(trace, {
+      parts: traceParts(trace),
+      stops: detectStops(trace, index).map((stop) => [stop.lon, stop.lat]),
+    });
+  }
+  return cache.get(trace);
 };
 
 // The day's van traces and pickup stops, from the day-trace store.
@@ -44,13 +57,13 @@ const MapRouteTraces = ({ traces, routeIndex }) => {
     return [
       visible.map(([deviceId, trace]) => ({
         type: 'Feature',
-        geometry: { type: 'MultiLineString', coordinates: traceParts(trace) },
+        geometry: { type: 'MultiLineString', coordinates: geometry(trace, routeIndex).parts },
         properties: properties(deviceId),
       })),
       visible.flatMap(([deviceId, trace]) =>
-        detectStops(trace, routeIndex || noRoutes).map((stop) => ({
+        geometry(trace, routeIndex).stops.map((coordinates) => ({
           type: 'Feature',
-          geometry: { type: 'Point', coordinates: [stop.lon, stop.lat] },
+          geometry: { type: 'Point', coordinates },
           properties: properties(deviceId),
         })),
       ),

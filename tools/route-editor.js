@@ -4,7 +4,7 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import * as maplibregl from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-import { ROUTE_COLORS } from '../src/map/main/plannedRoutes.js';
+import { ROUTE_COLORS, routeColorExpression } from '../src/map/main/plannedRoutes.js';
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
@@ -17,12 +17,7 @@ let route = 1;
 let dirty = false;
 
 const status = document.getElementById('status');
-const routeColor = [
-  'match',
-  ['get', 'route'],
-  ...Object.entries(ROUTE_COLORS).flatMap(([k, v]) => [Number(k), v]),
-  '#000',
-];
+const routeColor = routeColorExpression('#000');
 
 const map = new maplibregl.Map({
   container: 'map',

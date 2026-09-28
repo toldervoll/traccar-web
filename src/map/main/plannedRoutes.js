@@ -101,12 +101,28 @@ export const trackingWindow = (now = new Date(), search = window.location.search
   return { from: osloFivePm(hour < 4 ? new Date(now.getTime() - 5 * 3600000) : now), to: null };
 };
 
-const meters = (a, b) =>
+// No end to the window: the positions API needs a `to`.
+export const FAR_FUTURE = '2100-01-01T00:00:00Z';
+
+export const routeColorExpression = (fallback) => [
+  'match',
+  ['get', 'route'],
+  ...Object.entries(ROUTE_COLORS).flatMap(([route, color]) => [Number(route), color]),
+  fallback,
+];
+
+export const meters = (a, b) =>
   Math.hypot((a.lon - b.lon) * Math.cos((a.lat * Math.PI) / 180), a.lat - b.lat) * 111320;
 
 // Merges new positions into a trace: time order, no duplicate ids, and a position
 // kept only when it is THIN_STEP_M from the last kept one. The latest is always kept.
 export const mergeTrace = (trace, positions) => {
+  // Fast path for one newer position, the common websocket case: same result as below.
+  const last = trace[trace.length - 1];
+  if (positions.length === 1 && last && positions[0].time > last.time) {
+    const keepLast = trace.length === 1 || meters(last, trace[trace.length - 2]) >= THIN_STEP_M;
+    return [...trace.slice(0, -1), ...(keepLast ? [last] : []), positions[0]];
+  }
   const byId = new Map([...trace, ...positions].map((q) => [q.id, q]));
   const sorted = [...byId.values()].sort((a, b) => a.time - b.time || a.id - b.id);
   const kept = [];
