@@ -2,13 +2,27 @@ import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import useMapLayer from '../core/useMapLayer';
 import { useAttributePreference } from '../../common/util/preferences';
-import { vanColor } from './plannedRoutes';
+import { MAX_GAP_M, vanColor } from './plannedRoutes';
 import { buildRouteIndex, detectStops } from './routeCoverage';
 
 const noRoutes = buildRouteIndex({ features: [] });
 
+const meters = (a, b) =>
+  Math.hypot((a.lon - b.lon) * Math.cos((a.lat * Math.PI) / 180), a.lat - b.lat) * 111320;
+
+// A trace split where the phone jumped more than MAX_GAP_M, so gaps show as gaps.
+const traceParts = (trace) => {
+  const parts = [[]];
+  trace.forEach((p, i) => {
+    if (i > 0 && meters(trace[i - 1], p) > MAX_GAP_M) parts.push([]);
+    parts[parts.length - 1].push([p.lon, p.lat]);
+  });
+  return parts.filter((part) => part.length > 1);
+};
+
 // The day's van traces and pickup stops, from the day-trace store.
-const MapRouteTraces = ({ deviceIds, traces, routeIndex }) => {
+// All vans with a trace show, also when their latest position is missing or filtered out.
+const MapRouteTraces = ({ traces, routeIndex }) => {
   const type = useAttributePreference('mapRouteTraces', 'all');
   const devices = useSelector((state) => state.devices.items);
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
@@ -20,7 +34,6 @@ const MapRouteTraces = ({ deviceIds, traces, routeIndex }) => {
       ([deviceId, trace]) =>
         type !== 'none' &&
         trace.length > 1 &&
-        deviceIds.includes(Number(deviceId)) &&
         (type !== 'selected' || Number(deviceId) === selectedDeviceId),
     );
     const properties = (deviceId) => ({
@@ -31,7 +44,7 @@ const MapRouteTraces = ({ deviceIds, traces, routeIndex }) => {
     return [
       visible.map(([deviceId, trace]) => ({
         type: 'Feature',
-        geometry: { type: 'LineString', coordinates: trace.map((p) => [p.lon, p.lat]) },
+        geometry: { type: 'MultiLineString', coordinates: traceParts(trace) },
         properties: properties(deviceId),
       })),
       visible.flatMap(([deviceId, trace]) =>
@@ -42,16 +55,7 @@ const MapRouteTraces = ({ deviceIds, traces, routeIndex }) => {
         })),
       ),
     ];
-  }, [
-    traces,
-    deviceIds,
-    type,
-    selectedDeviceId,
-    devices,
-    mapLineWidth,
-    mapLineOpacity,
-    routeIndex,
-  ]);
+  }, [traces, type, selectedDeviceId, devices, mapLineWidth, mapLineOpacity, routeIndex]);
 
   useMapLayer({
     layers: [

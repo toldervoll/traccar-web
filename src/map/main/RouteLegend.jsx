@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Box, Button, IconButton, Paper, Typography } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import UndoIcon from '@mui/icons-material/Undo';
 import { MANUAL_COLOR, ROUTE_COLORS, vanColor } from './plannedRoutes';
 
 const COLLAPSED_KEY = 'routeLegendCollapsed';
@@ -87,6 +89,25 @@ const RouteLegend = ({
                 <Typography variant="caption" color="text.secondary">
                   {done ? 'Ferdig' : eta && `ferdig ca. ${formatTime.format(eta)}`}
                 </Typography>
+                {marking && (
+                  <IconButton
+                    size="small"
+                    disabled={pending}
+                    onClick={() => onToggleRoute(route)}
+                    title={
+                      closedRoutes[route] !== undefined
+                        ? 'Åpne ruten igjen'
+                        : 'Marker resten av ruten som ferdig'
+                    }
+                    sx={{ p: 0.25 }}
+                  >
+                    {closedRoutes[route] !== undefined ? (
+                      <UndoIcon fontSize="small" />
+                    ) : (
+                      <DoneAllIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                )}
                 <Typography variant="body2" sx={{ width: 36, textAlign: 'right' }}>
                   {`${Math.floor(progress * 100)}%`}
                 </Typography>
@@ -108,18 +129,6 @@ const RouteLegend = ({
                 ))}
                 <Box sx={{ width: `${manual * 100}%`, bgcolor: MANUAL_COLOR }} />
               </Box>
-              {marking && (
-                <Button
-                  size="small"
-                  disabled={pending}
-                  onClick={() => onToggleRoute(route)}
-                  sx={{ p: 0, minWidth: 0 }}
-                >
-                  {closedRoutes[route] !== undefined
-                    ? 'Åpne ruten igjen'
-                    : 'Marker resten som ferdig'}
-                </Button>
-              )}
             </Box>
           );
         })}
@@ -130,7 +139,7 @@ const RouteLegend = ({
       )}
       {marking && (
         <Typography variant="caption" color="text.secondary" component="div">
-          Trykk på en rute i kartet for å markere.
+          Trykk på en rute i kartet for å markere. ✓✓ markerer resten av ruten som ferdig.
         </Typography>
       )}
     </Paper>

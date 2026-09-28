@@ -54,11 +54,7 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
         <MapAccuracy positions={filteredPositions} />
         <MapPlannedRoutes routes={routes} traces={traces} trackWindow={trackWindow} />
         <MapLiveRoutes deviceIds={filteredPositions.map((p) => p.deviceId)} />
-        <MapRouteTraces
-          deviceIds={filteredPositions.map((p) => p.deviceId)}
-          traces={traces}
-          routeIndex={routes?.index}
-        />
+        <MapRouteTraces traces={traces} routeIndex={routes?.index} />
         <PoiMap />
         <MapPositionMarkers
           positions={filteredPositions}

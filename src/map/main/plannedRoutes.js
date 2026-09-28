@@ -36,14 +36,8 @@ export const SLOW_SEG_MAX_M = 100;
 export const ETA_MIN_PROGRESS = 0.2;
 export const STRIPE_WIDTH = 8;
 
+// Colors for vans without a report color or main route, none of them a route color.
 export const FALLBACK_COLORS = [
-  '#e6194b',
-  '#3cb44b',
-  '#4363d8',
-  '#f58231',
-  '#911eb4',
-  '#42d4f4',
-  '#f032e6',
   '#bfef45',
   '#fabed4',
   '#469990',

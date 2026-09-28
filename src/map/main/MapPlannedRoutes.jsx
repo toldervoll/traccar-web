@@ -43,8 +43,12 @@ const useManualMarks = ({ from, to, now }, routes) => {
   const markDevice = Object.values(devices).find((device) => !isVan(device));
   const latest = useSelector((state) => markDevice && state.session.positions[markDevice.id]);
   const [positions, setPositions] = useState([]);
+  const loadRef = useRef(0);
 
+  // Reloads can overlap (after a report and on its websocket echo); only the last one counts.
   const load = async () => {
+    loadRef.current += 1;
+    const current = loadRef.current;
     if (!markDevice || from === null) {
       setPositions([]);
       return;
@@ -55,7 +59,8 @@ const useManualMarks = ({ from, to, now }, routes) => {
       to: new Date(to ?? Date.parse('2100-01-01')).toISOString(),
     });
     const response = await fetch(`/api/positions?${query}`);
-    if (response.ok) setPositions(await response.json());
+    const loaded = response.ok ? await response.json() : null;
+    if (loaded && current === loadRef.current) setPositions(loaded);
   };
 
   useEffect(() => {
@@ -118,7 +123,7 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
         type: 'line',
         filter: ['==', '$type', 'LineString'],
         metadata: { 'traccar:title': 'Planlagte ruter' },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        layout: { 'line-cap': 'butt', 'line-join': 'round' },
         paint: {
           'line-color': [
             'match',
