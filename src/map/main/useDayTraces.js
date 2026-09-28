@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { FAR_FUTURE, isVan, mergeTrace, trackingWindow } from './plannedRoutes';
 
 const RETRY_MS = 15000;
+const GAP_RELOAD_MS = 60000;
 
 const toPoint = (p) => ({
   id: p.id,
@@ -55,6 +56,7 @@ export default (trackWindow) => {
     });
     try {
       const response = await fetch(`/api/positions?${query}`);
+      if (response.status === 401 || response.status === 403) return;
       if (!response.ok) throw new Error(response.statusText);
       const loaded = (await response.json()).map(toPoint).filter((p) => inWindow(p.time));
       if (storeRef.current === store) {
@@ -96,10 +98,19 @@ export default (trackWindow) => {
       const point = toPoint(position);
       // The store holds every device's latest position, so most of these are not new.
       if (entry && inWindow(point.time) && entry.trace.at(-1)?.id !== point.id) {
+        const previous = entry.trace.at(-1)?.time;
         entry.trace = mergeTrace(entry.trace, [point]);
         // Only a live socket keeps the history complete; the catch-up positions fetched
         // after a disconnect leave a gap that the reconnect reload has to fill.
-        if (socket && entry.syncedTo !== undefined) entry.syncedTo = point.time;
+        // A jump of more than GAP_RELOAD_MS means the phone was offline and the server
+        // pushed only its latest point, so fetch what came in between.
+        if (socket && entry.syncedTo !== undefined) {
+          if (previous !== undefined && point.time - previous > GAP_RELOAD_MS) {
+            load(position.deviceId, entry.syncedTo);
+          } else {
+            entry.syncedTo = point.time;
+          }
+        }
         changed = true;
       }
     });
