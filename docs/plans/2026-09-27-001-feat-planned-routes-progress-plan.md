@@ -148,6 +148,7 @@ Driving past a house is not the same as servicing it. A full van drives past pic
   - The marks of the window are the virtual device's positions, loaded with their attributes and ordered by position id. The last report per stretch wins. A report with an unknown stretch id or a value of the wrong type is ignored.
   - The virtual device stays out of the day-trace store, the stops, the device list, the markers and the traces.
   - Marking is off when the window ends in the past.
+  - U9 result (2026-09-28): both transports pass. Reports to the web origin `https://kart.koredu.no/` and to the intake `https://inntak.koredu.no/` were stored in order with the server's time, `on` as a boolean and the stretch ids as a string, and a second websocket connection received each report within seconds. Two reports from the same coordinates were both kept. The app uses the web origin on https (`MARK_TARGET = 'origin'`) and the intake from the dev server.
 - KTD13. **Route colors and tuning constants live in one module.** `src/map/main/plannedRoutes.js` holds `ROUTE_COLORS`, the fallback palette, the constants of the table below, the base location, the server origin, and the intake address.
 - KTD14. **The legend is a React panel inside a MapLibre custom control.** The control creates a container element, and the panel renders into it with `createPortal`, so it keeps the theme and store context. It can be collapsed. Labels are hard-coded in Norwegian.
 - KTD15. **One time window governs traces, stops, coverage and marks.**
