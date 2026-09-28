@@ -59,6 +59,7 @@ export default (trackWindow) => {
       const loaded = (await response.json()).map(toPoint).filter((p) => inWindow(p.time));
       if (storeRef.current === store) {
         entry.trace = mergeTrace(entry.trace, loaded);
+        entry.syncedTo = Math.max(entry.syncedTo ?? since, loaded.at(-1)?.time ?? since);
         setVersion((v) => v + 1);
       }
     } catch {
@@ -96,6 +97,9 @@ export default (trackWindow) => {
       // The store holds every device's latest position, so most of these are not new.
       if (entry && inWindow(point.time) && entry.trace.at(-1)?.id !== point.id) {
         entry.trace = mergeTrace(entry.trace, [point]);
+        // Only a live socket keeps the history complete; the catch-up positions fetched
+        // after a disconnect leave a gap that the reconnect reload has to fill.
+        if (socket && entry.syncedTo !== undefined) entry.syncedTo = point.time;
         changed = true;
       }
     });
@@ -107,7 +111,7 @@ export default (trackWindow) => {
   useEffect(() => {
     const reload = () => {
       Object.entries(storeRef.current).forEach(([deviceId, entry]) => {
-        if (from !== null) load(deviceId, entry.trace.at(-1)?.time ?? from);
+        if (from !== null) load(deviceId, entry.syncedTo ?? from);
       });
     };
     if (socket) reload();
