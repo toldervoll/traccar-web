@@ -13,6 +13,8 @@ import { devicesActions } from '../store';
 import MapDefaultCamera from '../map/main/MapDefaultCamera';
 import MapLiveRoutes from '../map/main/MapLiveRoutes';
 import MapRouteTraces from '../map/main/MapRouteTraces';
+import MapPlannedRoutes, { useRouteIndex } from '../map/main/MapPlannedRoutes';
+import useDayTraces, { useTrackingWindow } from '../map/main/useDayTraces';
 import MapPositionMarkers from '../map/MapPositionMarkers';
 import MapOverlay from '../map/overlay/MapOverlay';
 import MapGeocoder from '../map/control/MapGeocoder';
@@ -33,6 +35,10 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
 
   const [rulerActive, setRulerActive] = useState(false);
 
+  const trackWindow = useTrackingWindow();
+  const traces = useDayTraces(trackWindow);
+  const routes = useRouteIndex();
+
   const onMarkerClick = useCallback(
     (_, deviceId) => {
       dispatch(devicesActions.selectId(deviceId));
@@ -46,8 +52,13 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
         <MapOverlay />
         <MapGeofence />
         <MapAccuracy positions={filteredPositions} />
+        <MapPlannedRoutes routes={routes} traces={traces} trackWindow={trackWindow} />
         <MapLiveRoutes deviceIds={filteredPositions.map((p) => p.deviceId)} />
-        <MapRouteTraces deviceIds={filteredPositions.map((p) => p.deviceId)} />
+        <MapRouteTraces
+          deviceIds={filteredPositions.map((p) => p.deviceId)}
+          traces={traces}
+          routeIndex={routes?.index}
+        />
         <PoiMap />
         <MapPositionMarkers
           positions={filteredPositions}
