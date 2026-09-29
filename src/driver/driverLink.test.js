@@ -9,6 +9,7 @@ import {
   configLink,
   directionsLink,
   driverLink,
+  formatAge,
   setupQrAddress,
   trackingStatus,
 } from './driverLink.js';
@@ -96,4 +97,11 @@ test('trackingStatus: socket off or not yet connected is no contact (AE4)', () =
 
 test('trackingStatus: a fix time in the future gives age 0', () => {
   assert.deepEqual(trackingStatus(at(-30), true, now), { state: 'tracked', age: 0 });
+});
+
+test('formatAge: seconds, minutes, hours', () => {
+  assert.equal(formatAge(10), '10 s');
+  assert.equal(formatAge(300), '5 min');
+  assert.equal(formatAge(3 * 3600 + 120), '3 t 2 min');
+  assert.equal(formatAge(null), '');
 });

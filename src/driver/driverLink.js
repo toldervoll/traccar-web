@@ -40,3 +40,10 @@ export const trackingStatus = (position, socket, now = new Date()) => {
   if (!socket) return { state: 'offline', age };
   return { state: age !== null && age <= STATUS_MAX_AGE_S ? 'tracked' : 'untracked', age };
 };
+
+export const formatAge = (age) => {
+  if (age === null) return '';
+  if (age < 60) return `${age} s`;
+  if (age < 3600) return `${Math.floor(age / 60)} min`;
+  return `${Math.floor(age / 3600)} t ${Math.floor((age % 3600) / 60)} min`;
+};

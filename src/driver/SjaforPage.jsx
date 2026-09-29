@@ -9,6 +9,7 @@ import useDayTraces, { useTrackingWindow } from '../map/main/useDayTraces';
 import MapPositionMarkers from '../map/MapPositionMarkers';
 import MapScale from '../map/MapScale';
 import { isVan, mainRouteOf } from '../map/main/plannedRoutes';
+import DriverSetup, { TrackingStatus, useTrackingStatus } from './DriverSetup';
 
 // Fits the map to the van's main route once, or to all routes for a van with none.
 const useFitRoute = (routes, route) => {
@@ -33,6 +34,7 @@ const SjaforPage = () => {
   const positions = useSelector((state) => state.session.positions);
   const device = devices[deviceId];
   const known = device && isVan(device);
+  const status = useTrackingStatus(deviceId);
 
   const trackWindow = useTrackingWindow();
   const traces = useDayTraces(trackWindow);
@@ -57,6 +59,7 @@ const SjaforPage = () => {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Paper square elevation={2} sx={{ px: 2, py: 1, zIndex: 3 }}>
         <Typography variant="h6">{device.name}</Typography>
+        <TrackingStatus status={status} />
       </Paper>
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
         <MapView hideSettings>
@@ -70,6 +73,7 @@ const SjaforPage = () => {
         </MapView>
         <MapScale />
       </Box>
+      <DriverSetup device={device} status={status} />
     </Box>
   );
 };
