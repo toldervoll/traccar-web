@@ -138,6 +138,12 @@ test('eventDayWindow starts at 04:00 Oslo in winter time and on clock-change day
   assert.equal(iso(autumn.to), '2026-10-26T03:00:00.000Z');
 });
 
+test('eventDayWindow with only from, or a bad to, lasts 24 hours', () => {
+  ['?from=2026-10-09T15:00:00Z', '?from=2026-10-09T15:00:00Z&to=garbage'].forEach((search) => {
+    assert.equal(iso(eventDayWindow(new Date(), search).to), '2026-10-10T15:00:00.000Z');
+  });
+});
+
 test('eventDayWindow takes from and to from the URL', () => {
   const w = eventDayWindow(new Date(), '?from=2026-04-10T15:00:00Z&to=2026-04-10T21:30:00Z');
   assert.equal(iso(w.from), '2026-04-10T15:00:00.000Z');

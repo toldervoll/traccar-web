@@ -56,8 +56,9 @@ export const eventDayWindow = (now = new Date(), search = window.location.search
   const params = new URLSearchParams(search);
   const from = new Date(params.get('from'));
   if (params.get('from') && !Number.isNaN(from.getTime())) {
-    const to = new Date(params.get('to'));
-    return { from, to: Number.isNaN(to.getTime()) ? new Date(from.getTime() + DAY_MS) : to };
+    // new Date(null) is the epoch, so a missing `to` needs its own check.
+    const to = params.get('to') ? new Date(params.get('to')) : null;
+    return { from, to: to && !Number.isNaN(to.getTime()) ? to : new Date(from.getTime() + DAY_MS) };
   }
   let start = osloHour(now, 4);
   if (start > now) start = osloHour(new Date(now.getTime() - DAY_MS), 4);
