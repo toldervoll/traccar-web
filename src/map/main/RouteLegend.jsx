@@ -139,7 +139,11 @@ const RouteLegend = ({
       )}
       {marking && (
         <Typography variant="caption" color="text.secondary" component="div">
-          Trykk på en rute i kartet for å markere. ✓✓ markerer resten av ruten som ferdig.
+          <div>Trykk på en rute i kartet for å markere.</div>
+          <div>
+            <DoneAllIcon sx={{ fontSize: 'inherit', verticalAlign: 'middle' }} /> markerer resten av
+            ruten som ferdig.
+          </div>
         </Typography>
       )}
     </Paper>
