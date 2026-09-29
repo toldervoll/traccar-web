@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Route editor</title>
+    <style>
+      body { margin: 0; display: flex; height: 100vh; font: 14px sans-serif; }
+      #map { flex: 1; }
+      #side { width: 40%; display: flex; flex-direction: column; border-left: 1px solid #ccc; }
+      #bar { padding: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      #bar button.route { width: 32px; height: 32px; color: #fff; border: 3px solid transparent; font-weight: bold; }
+      #bar button.route.active { border-color: #000; }
+      #scan { flex: 1; overflow: auto; }
+      #scan img { width: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="side">
+      <div id="bar">
+        <span id="routes"></span>
+        <button id="export">Export</button>
+        <span id="status"></span>
+      </div>
+      <div id="scan"><img id="scan-image" alt="" /></div>
+    </div>
+    <script type="module" src="/tools/route-editor.js"></script>
+  </body>
+</html>
