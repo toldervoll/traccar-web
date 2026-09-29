@@ -14,11 +14,12 @@ const formatTime = new Intl.DateTimeFormat('nb-NO', {
   minute: '2-digit',
 });
 
-const readCollapsed = () => {
+const readCollapsed = (fallback) => {
   try {
-    return window.localStorage.getItem(COLLAPSED_KEY) === 'true';
+    const value = window.localStorage.getItem(COLLAPSED_KEY);
+    return value === null ? fallback : value === 'true';
   } catch {
-    return false;
+    return fallback;
   }
 };
 
@@ -32,8 +33,9 @@ const RouteLegend = ({
   error,
   onMarkingChange,
   onToggleRoute,
+  defaultCollapsed = false,
 }) => {
-  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [collapsed, setCollapsed] = useState(() => readCollapsed(defaultCollapsed));
 
   const toggleCollapsed = () => {
     setCollapsed(!collapsed);

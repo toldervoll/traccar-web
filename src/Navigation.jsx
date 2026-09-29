@@ -62,6 +62,7 @@ const AnnouncementPage = lazy(() => import('./settings/AnnouncementPage'));
 const EmulatorPage = lazy(() => import('./other/EmulatorPage'));
 const StreamPage = lazy(() => import('./other/StreamPage'));
 const AuditPage = lazy(() => import('./reports/AuditPage'));
+const SjaforPage = lazy(() => import('./driver/SjaforPage'));
 
 const Navigation = () => {
   const dispatch = useDispatch();
@@ -136,6 +137,7 @@ const Navigation = () => {
           <Route path="geofences" element={<GeofencesPage />} />
           <Route path="emulator" element={<EmulatorPage />} />
           <Route path="stream" element={<StreamPage />} />
+          <Route path="sjafor/:deviceId" element={<SjaforPage />} />
 
           <Route path="settings">
             <Route path=":type/:id/share" element={<SharePage />} />

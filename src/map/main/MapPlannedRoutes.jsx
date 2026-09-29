@@ -113,9 +113,10 @@ const useManualMarks = ({ from, to, now }, routes) => {
   };
 };
 
-const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
+const MapPlannedRoutes = ({ routes, traces, trackWindow, markable = true }) => {
   const devices = useSelector((state) => state.devices.items);
-  const { marks, report, enabled } = useManualMarks(trackWindow, routes);
+  const { marks, report, enabled: marksEnabled } = useManualMarks(trackWindow, routes);
+  const enabled = marksEnabled && markable;
 
   const [result, setResult] = useState(null);
   const lastRunRef = useRef(0);
@@ -292,6 +293,7 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
             error={error}
             onMarkingChange={setMarking}
             onToggleRoute={toggleRoute}
+            defaultCollapsed={!markable}
           />,
           container,
         )}
