@@ -12,6 +12,7 @@ import { isVan, mainRouteOf } from '../map/main/plannedRoutes';
 import DriverSetup, { TrackingStatus, useTrackingStatus } from './DriverSetup';
 import useMessages from './useMessages';
 import MessagePanel from './MessagePanel';
+import MessagePins from './MessagePins';
 
 // Fits the map to the van's main route once, or to all routes for a van with none.
 const useFitRoute = (routes, route) => {
@@ -73,6 +74,7 @@ const SjaforPage = () => {
             markable={false}
             highlightRoute={mainRouteOf(device)}
           />
+          {messages.enabled && <MessagePins pins={messages.pins} onRemove={messages.removePin} />}
           <MapPositionMarkers positions={vanPositions} ownDeviceId={deviceId} />
         </MapView>
         <MapScale />

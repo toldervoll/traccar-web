@@ -6,6 +6,7 @@ import {
   buildMessageReport,
   messageWindow,
   messagesFromPositions,
+  pinsFor,
   retryDelay,
   unreadCount,
   visibleTo,
@@ -14,6 +15,17 @@ import {
 const REQUEST_TIMEOUT_MS = 10000;
 
 const lastReadKey = (viewer) => `messagesLastRead:${viewer}`;
+
+const removedKey = (viewer) => `messagePinsRemoved:${viewer}`;
+
+const readRemoved = (viewer) => {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(removedKey(viewer)));
+    return Array.isArray(value) ? value.filter(Number.isInteger) : [];
+  } catch {
+    return [];
+  }
+};
 
 const readLastRead = (viewer) => {
   try {
@@ -158,9 +170,24 @@ const useMessages = (viewer) => {
     }
   }, [messages, lastRead, viewer]);
 
-  const send = async ({ to, text, re }) => {
+  // Removed pins are per browser; the message stays in the list (R33).
+  const [removedBy, setRemovedBy] = useState({});
+  const stored = useMemo(() => readRemoved(viewer), [viewer]);
+  const removed = viewer in removedBy ? removedBy[viewer] : stored;
+  const pins = useMemo(() => (viewer ? pinsFor(all, viewer, removed) : []), [all, viewer, removed]);
+  const removePin = (id) => {
+    const next = [...removed, id];
+    setRemovedBy({ [viewer]: next });
+    try {
+      window.localStorage.setItem(removedKey(viewer), JSON.stringify(next));
+    } catch {
+      // the pin then comes back on reload
+    }
+  };
+
+  const send = async ({ to, text, re, pin }) => {
     await sendReport(
-      buildMessageReport({ uniqueId: markDevice.uniqueId, from: viewer, to, text, re }),
+      buildMessageReport({ uniqueId: markDevice.uniqueId, from: viewer, to, text, re, pin }),
     );
     load();
   };
@@ -176,6 +203,8 @@ const useMessages = (viewer) => {
     reload: load,
     send,
     markRead,
+    pins,
+    removePin,
   };
 };
 

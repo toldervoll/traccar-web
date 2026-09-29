@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
 import {
   Badge,
   Box,
   Button,
+  Chip,
+  Link,
+  List,
+  ListItemButton,
+  ListItemText,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -19,7 +23,9 @@ import {
 import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
 import { ALL, MANAGER, MSG_MAX_LENGTH, messageError, okAnswers } from './messages';
-import { formatAge } from './driverLink';
+import { directionsLink, formatAge } from './driverLink';
+import { parseMatches, searchUrl } from './addressSearch';
+import { showOnMap, useNameOf } from './MessagePins';
 import { useNow } from './DriverSetup';
 
 const formatTime = new Intl.DateTimeFormat('nb-NO', {
@@ -70,7 +76,81 @@ const OkButton = ({ message, data }) => {
   );
 };
 
-const Message = ({ message, viewer, data, nameOf, now }) => {
+// Search as the sender types, and pick one match (R29).
+const AddressField = ({ query, onQueryChange, pin, onPin, onShow }) => {
+  const [matches, setMatches] = useState([]);
+  const [state, setState] = useState('idle');
+
+  useEffect(() => {
+    if (pin || !query.trim()) {
+      setMatches([]);
+      setState('idle');
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setState('searching');
+      try {
+        const response = await fetch(searchUrl(query), { signal: controller.signal });
+        if (!response.ok) throw new Error(response.statusText);
+        const found = parseMatches(await response.json());
+        setMatches(found);
+        setState(found.length ? 'idle' : 'empty');
+      } catch (e) {
+        if (e.name !== 'AbortError') setState('error');
+      }
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [query, pin]);
+
+  if (pin) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Chip label={pin.address} onDelete={() => onPin(null)} sx={{ maxWidth: '100%' }} />
+        <Button size="small" onClick={onShow}>
+          Vis på kartet
+        </Button>
+      </Box>
+    );
+  }
+  return (
+    <Box>
+      <TextField
+        size="small"
+        fullWidth
+        label="Adresse (valgfritt)"
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+        autoComplete="off"
+      />
+      {state !== 'idle' && (
+        <Typography variant="caption" color={state === 'error' ? 'error' : 'text.secondary'}>
+          {{ searching: 'Søker…', empty: 'Ingen treff', error: 'Adressesøket svarte ikke' }[state]}
+        </Typography>
+      )}
+      {matches.length > 0 && (
+        <List dense sx={{ maxHeight: 160, overflowY: 'auto' }}>
+          {matches.map((match) => (
+            <ListItemButton
+              key={`${match.label}-${match.lat}-${match.lon}`}
+              onClick={() => {
+                onPin({ lat: match.lat, lon: match.lon, address: match.label });
+                showOnMap(match);
+              }}
+            >
+              <ListItemText primary={match.label} />
+            </ListItemButton>
+          ))}
+        </List>
+      )}
+    </Box>
+  );
+};
+
+const Message = ({ message, viewer, data, nameOf, now, onShowPin }) => {
   const answers = viewer === MANAGER ? okAnswers(data.all, message, data.vanIds) : null;
   const incomingFromManager = viewer !== MANAGER && message.from === MANAGER;
   const answered = data.all.some((m) => m.from === viewer && m.re === message.id);
@@ -82,6 +162,26 @@ const Message = ({ message, viewer, data, nameOf, now }) => {
       <Typography variant="body2" sx={textSx}>
         {message.text}
       </Typography>
+      {message.pin && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Link
+            component="button"
+            variant="body2"
+            sx={{ textAlign: 'left', overflowWrap: 'anywhere' }}
+            onClick={() => onShowPin(message.pin)}
+          >
+            {message.pin.address}
+          </Link>
+          <Button
+            size="small"
+            href={directionsLink(message.pin.lat, message.pin.lon)}
+            target="_blank"
+            rel="noopener"
+          >
+            Kjør dit
+          </Button>
+        </Box>
+      )}
       {answers && (
         <Typography variant="caption" component="div">
           {`OK: ${answers.ok.map(nameOf).join(', ') || '–'}`}
@@ -106,7 +206,7 @@ const Message = ({ message, viewer, data, nameOf, now }) => {
 const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('sm'));
-  const devices = useSelector((state) => state.devices.items);
+  const nameOf = useNameOf();
   const now = useNow(10000);
 
   const [open, setOpen] = useState(false);
@@ -115,12 +215,14 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [dismissed, setDismissed] = useState(null);
+  const [addressQuery, setAddressQuery] = useState('');
+  const [pin, setPin] = useState(null);
   const endRef = useRef(null);
 
-  const nameOf = (id) => {
-    if (id === MANAGER) return 'Leder';
-    if (id === ALL) return 'Alle biler';
-    return devices[id]?.name ?? `Bil ${id}`;
+  // On a phone the panel covers the map, so it closes first.
+  const showPin = (point) => {
+    if (phone) setOpen(false);
+    showOnMap(point);
   };
 
   const { messages, markRead, unread } = data;
@@ -136,7 +238,9 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
     !open && unread > 0 && latest && latest.id !== dismissed && latest.id > (data.lastRead ?? 0);
 
   const submit = async () => {
-    const problem = messageError(text);
+    const problem =
+      messageError(text) ||
+      (addressQuery.trim() && !pin ? 'Velg adressen fra listen, eller tøm feltet' : null);
     if (problem) {
       setError(problem);
       return;
@@ -144,8 +248,10 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
     setSending(true);
     setError(null);
     try {
-      await data.send({ to, text });
+      await data.send({ to, text, pin: pin ?? undefined });
       setText('');
+      setPin(null);
+      setAddressQuery('');
     } catch (e) {
       setError(failure(e));
     } finally {
@@ -185,6 +291,11 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
             <Typography variant="caption" color="text.secondary">
               {`${nameOf(latest.from)}${unread > 1 ? ` · ${unread} uleste` : ''}`}
             </Typography>
+            {latest.pin && (
+              <Typography variant="caption" component="div" noWrap>
+                {latest.pin.address}
+              </Typography>
+            )}
             <Typography variant="body2" noWrap>
               {latest.text}
             </Typography>
@@ -215,6 +326,7 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
               data={data}
               nameOf={nameOf}
               now={now}
+              onShowPin={showPin}
             />
           ))}
           {data.error && (
@@ -254,6 +366,16 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
             value={text}
             onChange={(e) => setText(e.target.value)}
             slotProps={{ htmlInput: { maxLength: MSG_MAX_LENGTH } }}
+          />
+          <AddressField
+            query={addressQuery}
+            onQueryChange={setAddressQuery}
+            pin={pin}
+            onPin={(picked) => {
+              setPin(picked);
+              if (!picked) setAddressQuery('');
+            }}
+            onShow={() => showPin(pin)}
           />
           {error && (
             <Typography variant="caption" color="error">

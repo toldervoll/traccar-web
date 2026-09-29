@@ -127,6 +127,7 @@ const MainPage = () => {
             filteredPositions={filteredPositions}
             selectedPosition={selectedPosition}
             onEventsClick={onEventsClick}
+            messages={messages.enabled ? messages : null}
           />
         </Suspense>
       )}
@@ -154,6 +155,7 @@ const MainPage = () => {
                   filteredPositions={filteredPositions}
                   selectedPosition={selectedPosition}
                   onEventsClick={onEventsClick}
+                  messages={messages.enabled ? messages : null}
                 />
               </Suspense>
             </div>
