@@ -113,7 +113,13 @@ const useManualMarks = ({ from, to, now }, routes) => {
   };
 };
 
-const MapPlannedRoutes = ({ routes, traces, trackWindow, markable = true }) => {
+const MapPlannedRoutes = ({
+  routes,
+  traces,
+  trackWindow,
+  markable = true,
+  highlightRoute = null,
+}) => {
   const devices = useSelector((state) => state.devices.items);
   const { marks, report, enabled: marksEnabled } = useManualMarks(trackWindow, routes);
   const enabled = marksEnabled && markable;
@@ -160,6 +166,17 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow, markable = true }) => {
     data: routes?.geojson ?? null,
     dataDeps: [routes],
   });
+
+  // The highlight changes paint only, so the band keeps its place below the stripes.
+  useEffect(() => {
+    if (highlightRoute === null) return;
+    map.setPaintProperty(bandId, 'line-opacity', [
+      'case',
+      ['==', ['get', 'route'], highlightRoute],
+      0.6,
+      0.15,
+    ]);
+  }, [bandId, highlightRoute]);
 
   useMapLayer({
     layers: [

@@ -68,8 +68,9 @@ const SjaforPage = () => {
             traces={traces}
             trackWindow={trackWindow}
             markable={false}
+            highlightRoute={mainRouteOf(device)}
           />
-          <MapPositionMarkers positions={vanPositions} />
+          <MapPositionMarkers positions={vanPositions} ownDeviceId={deviceId} />
         </MapView>
         <MapScale />
       </Box>
