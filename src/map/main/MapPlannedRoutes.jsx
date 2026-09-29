@@ -234,7 +234,7 @@ const MapPlannedRoutes = ({
       {
         type: 'line',
         layout: { 'line-cap': 'butt', 'line-join': 'round' },
-        paint: { 'line-color': MANUAL_COLOR, 'line-width': 6, 'line-dasharray': [1, 1] },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 6, 'line-dasharray': [1, 1] },
       },
     ],
     layersDeps: [],
@@ -242,13 +242,19 @@ const MapPlannedRoutes = ({
       type: 'FeatureCollection',
       features:
         pendingMark && routes
-          ? routes.geojson.features.filter(
-              (f) =>
-                f.geometry.type === 'LineString' &&
-                (pendingMark.stretches
-                  ? pendingMark.stretches.includes(f.properties.id)
-                  : f.properties.route === pendingMark.route),
-            )
+          ? routes.geojson.features
+              .filter(
+                (f) =>
+                  f.geometry.type === 'LineString' &&
+                  (pendingMark.stretches
+                    ? pendingMark.stretches.includes(f.properties.id)
+                    : f.properties.route === pendingMark.route),
+              )
+              // White when unmarking: grey dashes would vanish on the grey manual stripe.
+              .map((f) => ({
+                ...f,
+                properties: { ...f.properties, color: pendingMark.on ? MANUAL_COLOR : '#ffffff' },
+              }))
           : [],
     },
     dataDeps: [pendingMark, routes],
