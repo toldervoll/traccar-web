@@ -22,6 +22,7 @@ import MapScale from '../map/MapScale';
 import MapRuler from '../map/control/MapRuler';
 import MapNotification from '../map/control/MapNotification';
 import useFeatures from '../common/util/useFeatures';
+import UntrackedVans from '../driver/UntrackedVans';
 
 const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
   const theme = useTheme();
@@ -53,6 +54,7 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
         <MapGeofence />
         <MapAccuracy positions={filteredPositions} />
         <MapPlannedRoutes routes={routes} traces={traces} trackWindow={trackWindow} />
+        <UntrackedVans />
         <MapLiveRoutes deviceIds={filteredPositions.map((p) => p.deviceId)} />
         <MapRouteTraces traces={traces} routeIndex={routes?.index} />
         <PoiMap />

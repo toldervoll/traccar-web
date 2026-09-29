@@ -1,6 +1,6 @@
 // Driver link, Traccar Client setup links and the tracking status (plan KTD4, KTD5).
 // Pure module: node --test imports it.
-import { INTAKE_URL } from '../map/main/plannedRoutes.js';
+import { INTAKE_URL, isVan, osloHour } from '../map/main/plannedRoutes.js';
 
 // Start values; the phone test (U1) checks them. `wakelock` applies to Android only.
 export const TRACKER_SETTINGS = {
@@ -46,4 +46,37 @@ export const formatAge = (age) => {
   if (age < 60) return `${age} s`;
   if (age < 3600) return `${Math.floor(age / 60)} min`;
   return `${Math.floor(age / 3600)} t ${Math.floor((age % 3600) / 60)} min`;
+};
+
+const DAY_MS = 24 * 3600000;
+
+// The event day: from the latest 04:00 Oslo that is not after `now`, to 24 hours later
+// (plan KTD9). The URL parameters from and to override it.
+export const eventDayWindow = (now = new Date(), search = window.location.search) => {
+  const params = new URLSearchParams(search);
+  const from = new Date(params.get('from'));
+  if (params.get('from') && !Number.isNaN(from.getTime())) {
+    const to = new Date(params.get('to'));
+    return { from, to: Number.isNaN(to.getTime()) ? new Date(from.getTime() + DAY_MS) : to };
+  }
+  let start = osloHour(now, 4);
+  if (start > now) start = osloHour(new Date(now.getTime() - DAY_MS), 4);
+  return { from: start, to: osloHour(new Date(start.getTime() + DAY_MS + 3 * 3600000), 4) };
+};
+
+// The vans that are not tracked, by name, and the done marks to keep: a van loses its
+// mark when it is tracked again (plan KTD21). Empty once the window has ended.
+export const untrackedVans = (devices, positions, now, dayWindow, done) => {
+  const vans = Object.values(devices).filter(isVan);
+  const keep = done.filter((id) => trackingStatus(positions[id], true, now).state !== 'tracked');
+  if (dayWindow.to <= now) return { vans: [], done: keep };
+  return {
+    vans: vans
+      .filter((device) => !keep.includes(device.id))
+      .map((device) => ({ device, ...trackingStatus(positions[device.id], true, now) }))
+      .filter((entry) => entry.state === 'untracked')
+      .map(({ device, age }) => ({ device, age }))
+      .sort((a, b) => a.device.name.localeCompare(b.device.name, 'nb', { numeric: true })),
+    done: keep,
+  };
 };

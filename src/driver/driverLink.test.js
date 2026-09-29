@@ -9,9 +9,11 @@ import {
   configLink,
   directionsLink,
   driverLink,
+  eventDayWindow,
   formatAge,
   setupQrAddress,
   trackingStatus,
+  untrackedVans,
 } from './driverLink.js';
 
 const query = (link) => new URLSearchParams(link.slice(link.indexOf('?') + 1));
@@ -104,4 +106,104 @@ test('formatAge: seconds, minutes, hours', () => {
   assert.equal(formatAge(300), '5 min');
   assert.equal(formatAge(3 * 3600 + 120), '3 t 2 min');
   assert.equal(formatAge(null), '');
+});
+
+const iso = (date) => date.toISOString();
+
+test('eventDayWindow runs from 04:00 to 04:00 Oslo (AE9)', () => {
+  const night = eventDayWindow(new Date('2026-10-10T01:30:00+02:00'), '');
+  assert.equal(iso(night.from), '2026-10-09T02:00:00.000Z');
+  assert.equal(iso(night.to), '2026-10-10T02:00:00.000Z');
+  const morning = eventDayWindow(new Date('2026-10-10T04:30:00+02:00'), '');
+  assert.equal(iso(morning.from), '2026-10-10T02:00:00.000Z');
+  assert.equal(iso(morning.to), '2026-10-11T02:00:00.000Z');
+});
+
+test('eventDayWindow starts at 04:00 exactly', () => {
+  const w = eventDayWindow(new Date('2026-10-10T04:00:00+02:00'), '');
+  assert.equal(iso(w.from), '2026-10-10T02:00:00.000Z');
+});
+
+test('eventDayWindow starts at 04:00 Oslo in winter time and on clock-change days', () => {
+  assert.equal(
+    iso(eventDayWindow(new Date('2026-12-09T12:00:00+01:00'), '').from),
+    '2026-12-09T03:00:00.000Z',
+  );
+  // 2026-03-29: clocks go forward at 02:00. 2026-10-25: clocks go back at 03:00.
+  const spring = eventDayWindow(new Date('2026-03-29T12:00:00+02:00'), '');
+  assert.equal(iso(spring.from), '2026-03-29T02:00:00.000Z');
+  assert.equal(iso(spring.to), '2026-03-30T02:00:00.000Z');
+  const autumn = eventDayWindow(new Date('2026-10-25T12:00:00+01:00'), '');
+  assert.equal(iso(autumn.from), '2026-10-25T03:00:00.000Z');
+  assert.equal(iso(autumn.to), '2026-10-26T03:00:00.000Z');
+});
+
+test('eventDayWindow takes from and to from the URL', () => {
+  const w = eventDayWindow(new Date(), '?from=2026-04-10T15:00:00Z&to=2026-04-10T21:30:00Z');
+  assert.equal(iso(w.from), '2026-04-10T15:00:00.000Z');
+  assert.equal(iso(w.to), '2026-04-10T21:30:00.000Z');
+});
+
+const van = (id, name) => ({ id, name, attributes: {} });
+const markDevice = { id: 99, name: 'Markering', attributes: { manualMarks: true } };
+const devices = { 3: van(3, 'Bil 3'), 6: van(6, 'Bil 6'), 99: markDevice };
+const evening = new Date('2026-10-09T18:45:00+02:00');
+const dayWindow = eventDayWindow(evening, '');
+const fix = (secondsAgo, time = evening) => ({
+  fixTime: new Date(time.getTime() - secondsAgo * 1000).toISOString(),
+});
+const names = (result) => result.vans.map((v) => v.device.name);
+
+test('untrackedVans lists a van 5 min old with its age, not one 10 s old (AE20)', () => {
+  const result = untrackedVans(
+    devices,
+    { 3: fix(10), 6: fix(300), 99: fix(3600) },
+    evening,
+    dayWindow,
+    [],
+  );
+  assert.deepEqual(
+    result.vans.map((v) => [v.device.name, v.age]),
+    [['Bil 6', 300]],
+  );
+});
+
+test('untrackedVans lists a van with no position, also at 16:30 (AE20)', () => {
+  const afternoon = new Date('2026-10-09T16:30:00+02:00');
+  const result = untrackedVans(devices, {}, afternoon, eventDayWindow(afternoon, ''), []);
+  assert.deepEqual(names(result), ['Bil 3', 'Bil 6']);
+  assert.equal(result.vans[0].age, null);
+});
+
+test('untrackedVans never lists the virtual device, and sorts by name', () => {
+  const many = { ...devices, 10: van(10, 'Bil 10') };
+  assert.deepEqual(names(untrackedVans(many, {}, evening, dayWindow, [])), [
+    'Bil 3',
+    'Bil 6',
+    'Bil 10',
+  ]);
+});
+
+test('untrackedVans is empty when the window ended', () => {
+  const past = eventDayWindow(evening, '?from=2026-04-10T15:00:00Z&to=2026-04-10T21:30:00Z');
+  assert.deepEqual(untrackedVans(devices, {}, evening, past, []).vans, []);
+});
+
+test('untrackedVans: a done van is left out and keeps its mark while it is silent (AE23)', () => {
+  const result = untrackedVans(devices, { 3: fix(10), 6: fix(600) }, evening, dayWindow, [6]);
+  assert.deepEqual(result.vans, []);
+  assert.deepEqual(result.done, [6]);
+});
+
+test('untrackedVans: a done van that reports loses its mark, then is listed again (AE23)', () => {
+  const reporting = untrackedVans(devices, { 3: fix(10), 6: fix(10) }, evening, dayWindow, [6]);
+  assert.deepEqual(reporting.done, []);
+  const silent = untrackedVans(
+    devices,
+    { 3: fix(10), 6: fix(300) },
+    evening,
+    dayWindow,
+    reporting.done,
+  );
+  assert.deepEqual(names(silent), ['Bil 6']);
 });
