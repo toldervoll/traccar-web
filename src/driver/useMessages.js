@@ -13,6 +13,7 @@ import {
 } from './messages';
 
 const REQUEST_TIMEOUT_MS = 10000;
+const RELOAD_AFTER_SEND_MS = 4000;
 
 const lastReadKey = (viewer) => `messagesLastRead:${viewer}`;
 
@@ -197,7 +198,9 @@ const useMessages = (viewer) => {
     await sendReport(
       buildMessageReport({ uniqueId: markDevice.uniqueId, from: viewer, to, text, re, pin }),
     );
+    // The server holds a report about 3 s; the second load does not rely on the websocket.
     load();
+    setTimeout(load, RELOAD_AFTER_SEND_MS);
   };
 
   return {

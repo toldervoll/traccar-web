@@ -13,6 +13,7 @@ import sendReport from './sendReport';
 const THROTTLE_MS = 3000;
 const REQUEST_TIMEOUT_MS = 10000;
 const TAP_PADDING = 12;
+const RELOAD_AFTER_SEND_MS = 4000;
 const noMarks = { stretches: {}, routes: {} };
 const PENDING_TIMEOUT_MS = 20000;
 
@@ -109,8 +110,10 @@ const useManualMarks = ({ from, to, now }, routes) => {
 
   const report = async (mark) => {
     await sendReport(buildMarkReport({ uniqueId: markDevice.uniqueId, ...mark }));
-    // The mark is sent; a failed reload is caught up by the websocket echo.
+    // The mark is sent. The server holds a report about 3 s, so this reload can be
+    // early; the websocket echo or the second reload catches it up.
     await load().catch(() => {});
+    setTimeout(() => load().catch(() => {}), RELOAD_AFTER_SEND_MS);
   };
 
   return {
