@@ -53,11 +53,14 @@ const useMessages = (viewer) => {
   }, [tick]);
   useEffect(() => {
     if (!win.active) return undefined;
-    const timer = setTimeout(() => setTick((t) => t + 1), win.to - Date.now() + 500);
+    // setTimeout fires at once past about 24 days; a far `to` then just re-arms.
+    const delay = Math.min(win.to - Date.now() + 500, 2 ** 31 - 1);
+    const timer = setTimeout(() => setTick((t) => t + 1), delay);
     return () => clearTimeout(timer);
   }, [win]);
 
-  const [positions, setPositions] = useState([]);
+  // Tagged with their device and window, so a failed load after 04:00 shows nothing old.
+  const [loadedPositions, setLoadedPositions] = useState({ key: null, list: [] });
   const [error, setError] = useState(false);
 
   const paramsRef = useRef();
@@ -74,7 +77,7 @@ const useMessages = (viewer) => {
     }
     const { deviceId, from, to, active } = paramsRef.current;
     if (!deviceId || !active) {
-      setPositions([]);
+      setLoadedPositions({ key: null, list: [] });
       return;
     }
     clearTimeout(run.timer);
@@ -93,7 +96,7 @@ const useMessages = (viewer) => {
       .then((loaded) => {
         const current = paramsRef.current;
         if (!run.dead && key === `${current.deviceId}:${current.from}:${current.to}`) {
-          setPositions(loaded);
+          setLoadedPositions({ key, list: loaded });
           setError(false);
         }
         run.attempt = 0;
@@ -148,9 +151,13 @@ const useMessages = (viewer) => {
     [devices],
   );
 
+  const currentKey = `${markDevice?.id}:${win.from}:${win.to}`;
   const all = useMemo(
-    () => (win.active ? messagesFromPositions(positions, new Set(vanIds)) : []),
-    [positions, vanIds, win],
+    () =>
+      win.active && loadedPositions.key === currentKey
+        ? messagesFromPositions(loadedPositions.list, new Set(vanIds))
+        : [],
+    [loadedPositions, currentKey, vanIds, win],
   );
   const messages = useMemo(() => (viewer ? visibleTo(all, viewer) : []), [all, viewer]);
 
@@ -176,7 +183,8 @@ const useMessages = (viewer) => {
   const removed = viewer in removedBy ? removedBy[viewer] : stored;
   const pins = useMemo(() => (viewer ? pinsFor(all, viewer, removed) : []), [all, viewer, removed]);
   const removePin = (id) => {
-    const next = [...removed, id];
+    // Re-read storage: another tab may have removed pins since this one loaded.
+    const next = [...new Set([...readRemoved(viewer), ...removed, id])];
     setRemovedBy({ [viewer]: next });
     try {
       window.localStorage.setItem(removedKey(viewer), JSON.stringify(next));

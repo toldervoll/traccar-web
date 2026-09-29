@@ -77,7 +77,7 @@ const OkButton = ({ message, data }) => {
 };
 
 // Search as the sender types, and pick one match (R29).
-const AddressField = ({ query, onQueryChange, pin, onPin, onShow }) => {
+const AddressField = ({ query, onQueryChange, pin, onPin, onShow, disabled }) => {
   const [matches, setMatches] = useState([]);
   const [state, setState] = useState('idle');
 
@@ -109,7 +109,11 @@ const AddressField = ({ query, onQueryChange, pin, onPin, onShow }) => {
   if (pin) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-        <Chip label={pin.address} onDelete={() => onPin(null)} sx={{ maxWidth: '100%' }} />
+        <Chip
+          label={pin.address}
+          onDelete={disabled ? undefined : () => onPin(null)}
+          sx={{ maxWidth: '100%' }}
+        />
         <Button size="small" onClick={onShow}>
           Vis på kartet
         </Button>
@@ -122,6 +126,7 @@ const AddressField = ({ query, onQueryChange, pin, onPin, onShow }) => {
         size="small"
         fullWidth
         label="Adresse (valgfritt)"
+        disabled={disabled}
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
         autoComplete="off"
@@ -226,11 +231,14 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
   };
 
   const { messages, markRead, unread } = data;
+  const lastId = messages.at(-1)?.id;
   useEffect(() => {
-    if (!open) return;
-    markRead();
-    endRef.current?.scrollIntoView({ block: 'end' });
-  }, [open, messages, markRead]);
+    if (open) markRead();
+  }, [open, markRead]);
+  // Scroll on open and on a new message only, not on every reload.
+  useEffect(() => {
+    if (open) endRef.current?.scrollIntoView({ block: 'end' });
+  }, [open, lastId]);
 
   const incoming = messages.filter((m) => m.from !== viewer);
   const latest = incoming.at(-1);
@@ -347,6 +355,7 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
               select
               size="small"
               label="Til"
+              disabled={sending}
               value={to}
               onChange={(e) => setTo(e.target.value)}
             >
@@ -363,6 +372,7 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
             maxRows={4}
             size="small"
             label={viewer === MANAGER ? 'Melding' : 'Melding til leder'}
+            disabled={sending}
             value={text}
             onChange={(e) => setText(e.target.value)}
             slotProps={{ htmlInput: { maxLength: MSG_MAX_LENGTH } }}
@@ -376,6 +386,7 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
               if (!picked) setAddressQuery('');
             }}
             onShow={() => showPin(pin)}
+            disabled={sending}
           />
           {error && (
             <Typography variant="caption" color="error">
