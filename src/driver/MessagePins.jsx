@@ -7,8 +7,14 @@ import MapMarkers from '../map/MapMarkers';
 import { directionsLink } from './driverLink';
 import { ALL, MANAGER, pinLabel } from './messages';
 
-export const showOnMap = ({ lat, lon }) =>
-  map.easeTo({ center: toMapCoordinates(lon, lat), zoom: Math.max(map.getZoom(), 16) });
+// `abovePanel` puts the point in the top quarter of the map, clear of an open panel,
+// which sits in the middle of the screen.
+export const showOnMap = ({ lat, lon }, abovePanel = false) =>
+  map.easeTo({
+    center: toMapCoordinates(lon, lat),
+    zoom: Math.max(map.getZoom(), 16),
+    offset: [0, abovePanel ? -map.getContainer().clientHeight / 4 : 0],
+  });
 
 export const useNameOf = () => {
   const devices = useSelector((state) => state.devices.items);

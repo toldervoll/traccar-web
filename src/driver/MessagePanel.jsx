@@ -143,7 +143,7 @@ const AddressField = ({ query, onQueryChange, pin, onPin, onShow, disabled }) =>
               key={`${match.label}-${match.lat}-${match.lon}`}
               onClick={() => {
                 onPin({ lat: match.lat, lon: match.lon, address: match.label });
-                showOnMap(match);
+                showOnMap(match, true);
               }}
             >
               <ListItemText primary={match.label} />
