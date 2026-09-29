@@ -182,6 +182,8 @@ const useMessages = (viewer) => {
   const [removedBy, setRemovedBy] = useState({});
   const stored = useMemo(() => readRemoved(viewer), [viewer]);
   const removed = viewer in removedBy ? removedBy[viewer] : stored;
+  // The address picked in the draft, shown on the map before the send.
+  const [draftPin, setDraftPin] = useState(null);
   const pins = useMemo(() => (viewer ? pinsFor(all, viewer, removed) : []), [all, viewer, removed]);
   const removePin = (id) => {
     // Re-read storage: another tab may have removed pins since this one loaded.
@@ -216,6 +218,8 @@ const useMessages = (viewer) => {
     markRead,
     pins,
     removePin,
+    draftPin,
+    setDraftPin,
   };
 };
 

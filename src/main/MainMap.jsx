@@ -59,7 +59,14 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, messages 
         <MapLiveRoutes deviceIds={filteredPositions.map((p) => p.deviceId)} />
         <MapRouteTraces traces={traces} routeIndex={routes?.index} />
         <PoiMap />
-        {messages && <MessagePins pins={messages.pins} onRemove={messages.removePin} labels />}
+        {messages && (
+          <MessagePins
+            pins={messages.pins}
+            onRemove={messages.removePin}
+            draft={messages.draftPin}
+            labels
+          />
+        )}
         <MapPositionMarkers
           positions={filteredPositions}
           onMarkerClick={onMarkerClick}

@@ -221,12 +221,12 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
   const [error, setError] = useState(null);
   const [dismissed, setDismissed] = useState(null);
   const [addressQuery, setAddressQuery] = useState('');
-  const [pin, setPin] = useState(null);
+  const { draftPin: pin, setDraftPin: setPin } = data;
   const endRef = useRef(null);
 
-  // On a phone the panel covers the map, so it closes first.
+  // The panel covers the map, so it closes first. The draft stays.
   const showPin = (point) => {
-    if (phone) setOpen(false);
+    setOpen(false);
     showOnMap(point);
   };
 

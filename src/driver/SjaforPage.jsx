@@ -74,7 +74,13 @@ const SjaforPage = () => {
             markable={false}
             highlightRoute={mainRouteOf(device)}
           />
-          {messages.enabled && <MessagePins pins={messages.pins} onRemove={messages.removePin} />}
+          {messages.enabled && (
+            <MessagePins
+              pins={messages.pins}
+              onRemove={messages.removePin}
+              draft={messages.draftPin}
+            />
+          )}
           <MapPositionMarkers positions={vanPositions} ownDeviceId={deviceId} />
         </MapView>
         <MapScale />

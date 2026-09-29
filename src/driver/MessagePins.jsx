@@ -23,7 +23,7 @@ export const useNameOf = () => {
 };
 
 // The pins of the viewer's messages (plan U9). Labels on the main map only (R34).
-const MessagePins = ({ pins, onRemove, labels }) => {
+const MessagePins = ({ pins, onRemove, labels, draft }) => {
   const nameOf = useNameOf();
   const [selectedId, setSelectedId] = useState(null);
   const selected = pins.find((pin) => pin.id === selectedId);
@@ -42,9 +42,26 @@ const MessagePins = ({ pins, onRemove, labels }) => {
 
   const onClick = useCallback((properties) => setSelectedId(properties.id), []);
 
+  const draftMarkers = useMemo(
+    () =>
+      draft
+        ? [
+            {
+              id: 0,
+              latitude: draft.lat,
+              longitude: draft.lon,
+              image: 'default-error',
+              title: 'Ny adresse',
+            },
+          ]
+        : [],
+    [draft],
+  );
+
   return (
     <>
       <MapMarkers markers={markers} showTitles={labels} onClick={onClick} />
+      <MapMarkers markers={draftMarkers} showTitles />
       <Dialog open={Boolean(selected)} onClose={() => setSelectedId(null)} maxWidth="xs" fullWidth>
         {selected && (
           <DialogContent>
