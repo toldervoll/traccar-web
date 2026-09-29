@@ -4,18 +4,11 @@ import { useSelector } from 'react-redux';
 import { Menu, MenuItem } from '@mui/material';
 import { map } from '../core/MapView';
 import useMapLayer from '../core/useMapLayer';
-import fetchOrThrow from '../../common/util/fetchOrThrow';
-import {
-  FAR_FUTURE,
-  INTAKE_URL,
-  MARK_TARGET,
-  isVan,
-  routeColorExpression,
-  vanColor,
-} from './plannedRoutes';
+import { FAR_FUTURE, isVan, routeColorExpression, vanColor } from './plannedRoutes';
 import { buildRouteIndex, computeCoverage, routeStatus, servicedFeatures } from './routeCoverage';
 import { buildMarkReport, marksFromPositions } from './manualMarks';
 import RouteLegend from './RouteLegend';
+import sendReport from './sendReport';
 
 const THROTTLE_MS = 3000;
 const REQUEST_TIMEOUT_MS = 10000;
@@ -46,17 +39,6 @@ export const useRouteIndex = () => {
     };
   }, []);
   return routes;
-};
-
-const send = async (body) => {
-  const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-  if (MARK_TARGET === 'origin' && window.location.protocol === 'https:') {
-    await fetchOrThrow(window.location.origin, { method: 'POST', headers, body, signal });
-  } else {
-    // no-cors gives no status; the websocket echo shows whether it arrived
-    await fetch(INTAKE_URL, { method: 'POST', mode: 'no-cors', headers, body, signal });
-  }
 };
 
 // Marks from the virtual device's reports in the window, reloaded when it reports.
@@ -101,7 +83,7 @@ const useManualMarks = ({ from, to, now }, routes) => {
   );
 
   const report = async (mark) => {
-    await send(buildMarkReport({ uniqueId: markDevice.uniqueId, ...mark }));
+    await sendReport(buildMarkReport({ uniqueId: markDevice.uniqueId, ...mark }));
     // The mark is sent; a failed reload is caught up by the websocket echo.
     await load().catch(() => {});
   };

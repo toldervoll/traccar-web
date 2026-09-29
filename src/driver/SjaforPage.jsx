@@ -10,6 +10,8 @@ import MapPositionMarkers from '../map/MapPositionMarkers';
 import MapScale from '../map/MapScale';
 import { isVan, mainRouteOf } from '../map/main/plannedRoutes';
 import DriverSetup, { TrackingStatus, useTrackingStatus } from './DriverSetup';
+import useMessages from './useMessages';
+import MessagePanel from './MessagePanel';
 
 // Fits the map to the van's main route once, or to all routes for a van with none.
 const useFitRoute = (routes, route) => {
@@ -35,6 +37,7 @@ const SjaforPage = () => {
   const device = devices[deviceId];
   const known = device && isVan(device);
   const status = useTrackingStatus(deviceId);
+  const messages = useMessages(known ? String(deviceId) : null);
 
   const trackWindow = useTrackingWindow();
   const traces = useDayTraces(trackWindow);
@@ -73,6 +76,14 @@ const SjaforPage = () => {
           <MapPositionMarkers positions={vanPositions} ownDeviceId={deviceId} />
         </MapView>
         <MapScale />
+        {messages.enabled && (
+          <MessagePanel
+            viewer={String(deviceId)}
+            data={messages}
+            buttonSx={{ right: 16, bottom: 40 }}
+            bannerSx={{ top: 8 }}
+          />
+        )}
       </Box>
       <DriverSetup device={device} status={status} />
     </Box>
