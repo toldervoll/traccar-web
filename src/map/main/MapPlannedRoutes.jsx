@@ -4,23 +4,42 @@ import { useSelector } from 'react-redux';
 import { Menu, MenuItem } from '@mui/material';
 import { map } from '../core/MapView';
 import useMapLayer from '../core/useMapLayer';
-import fetchOrThrow from '../../common/util/fetchOrThrow';
-import {
-  FAR_FUTURE,
-  INTAKE_URL,
-  MARK_TARGET,
-  isVan,
-  routeColorExpression,
-  vanColor,
-} from './plannedRoutes';
+import { FAR_FUTURE, MANUAL_COLOR, isVan, routeColorExpression, vanColor } from './plannedRoutes';
 import { buildRouteIndex, computeCoverage, routeStatus, servicedFeatures } from './routeCoverage';
 import { buildMarkReport, marksFromPositions } from './manualMarks';
 import RouteLegend from './RouteLegend';
+import sendReport from './sendReport';
 
 const THROTTLE_MS = 3000;
 const REQUEST_TIMEOUT_MS = 10000;
 const TAP_PADDING = 12;
+const RELOAD_AFTER_SEND_MS = 4000;
 const noMarks = { stretches: {}, routes: {} };
+const PENDING_TIMEOUT_MS = 20000;
+
+const segmentDistance = (p, a, b) => {
+  const [dx, dy] = [b.x - a.x, b.y - a.y];
+  const t = dx || dy ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy) : 0;
+  const k = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + k * dx), p.y - (a.y + k * dy));
+};
+
+// Screen distance from a tap to a rendered line feature.
+const tapDistance = (point, feature) => {
+  const { type, coordinates } = feature.geometry;
+  const lines = type === 'MultiLineString' ? coordinates : [coordinates];
+  return Math.min(
+    ...lines.flatMap((line) =>
+      line.slice(1).map((c, i) => segmentDistance(point, map.project(line[i]), map.project(c))),
+    ),
+  );
+};
+
+// Whether the marks show a change that was sent.
+const reflected = (marks, { stretches, route, on }) =>
+  stretches
+    ? stretches.every((id) => (marks.stretches[id] !== undefined) === on)
+    : (marks.routes[route] !== undefined) === on;
 
 export const useRouteIndex = () => {
   const [routes, setRoutes] = useState(null);
@@ -46,17 +65,6 @@ export const useRouteIndex = () => {
     };
   }, []);
   return routes;
-};
-
-const send = async (body) => {
-  const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-  if (MARK_TARGET === 'origin' && window.location.protocol === 'https:') {
-    await fetchOrThrow(window.location.origin, { method: 'POST', headers, body, signal });
-  } else {
-    // no-cors gives no status; the websocket echo shows whether it arrived
-    await fetch(INTAKE_URL, { method: 'POST', mode: 'no-cors', headers, body, signal });
-  }
 };
 
 // Marks from the virtual device's reports in the window, reloaded when it reports.
@@ -101,9 +109,11 @@ const useManualMarks = ({ from, to, now }, routes) => {
   );
 
   const report = async (mark) => {
-    await send(buildMarkReport({ uniqueId: markDevice.uniqueId, ...mark }));
-    // The mark is sent; a failed reload is caught up by the websocket echo.
+    await sendReport(buildMarkReport({ uniqueId: markDevice.uniqueId, ...mark }));
+    // The mark is sent. The server holds a report about 3 s, so this reload can be
+    // early; the websocket echo or the second reload catches it up.
     await load().catch(() => {});
+    setTimeout(() => load().catch(() => {}), RELOAD_AFTER_SEND_MS);
   };
 
   return {
@@ -113,9 +123,16 @@ const useManualMarks = ({ from, to, now }, routes) => {
   };
 };
 
-const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
+const MapPlannedRoutes = ({
+  routes,
+  traces,
+  trackWindow,
+  markable = true,
+  highlightRoute = null,
+}) => {
   const devices = useSelector((state) => state.devices.items);
-  const { marks, report, enabled } = useManualMarks(trackWindow, routes);
+  const { marks, report, enabled: marksEnabled } = useManualMarks(trackWindow, routes);
+  const enabled = marksEnabled && markable;
 
   const [result, setResult] = useState(null);
   const lastRunRef = useRef(0);
@@ -126,7 +143,7 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
         lastRunRef.current = Date.now();
         const coverage = computeCoverage(routes.index, traces, marks);
         const stripes = servicedFeatures(routes.index, coverage, (van) => vanColor(devices[van]));
-        setResult({ coverage, stripes });
+        setResult({ coverage, stripes, marks });
       },
       Math.max(0, lastRunRef.current + THROTTLE_MS - Date.now()),
     );
@@ -160,6 +177,17 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
     dataDeps: [routes],
   });
 
+  // The highlight changes paint only, so the band keeps its place below the stripes.
+  useEffect(() => {
+    if (highlightRoute === null) return;
+    map.setPaintProperty(bandId, 'line-opacity', [
+      'case',
+      ['==', ['get', 'route'], highlightRoute],
+      0.6,
+      0.15,
+    ]);
+  }, [bandId, highlightRoute]);
+
   useMapLayer({
     layers: [
       {
@@ -181,8 +209,56 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
   // Marking mode: a tap on a band opens a menu for that stretch or street.
   const [marking, setMarking] = useState(false);
   const [menu, setMenu] = useState(null);
-  const [pending, setPending] = useState(false);
+  // The change in flight: from the tap until the stripes show it.
+  const [pendingMark, setPendingMark] = useState(null);
+  const pending = Boolean(pendingMark);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (pendingMark && result?.marks === marks && reflected(marks, pendingMark)) {
+      setPendingMark(null);
+    }
+  }, [pendingMark, result, marks]);
+
+  useEffect(() => {
+    if (!pendingMark) return undefined;
+    const timer = setTimeout(() => {
+      setPendingMark(null);
+      setError('Markeringen vises ikke ennå. Sjekk kartet før du prøver igjen.');
+    }, PENDING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [pendingMark]);
+
+  useMapLayer({
+    layers: [
+      {
+        type: 'line',
+        layout: { 'line-cap': 'butt', 'line-join': 'round' },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 6, 'line-dasharray': [1, 1] },
+      },
+    ],
+    layersDeps: [],
+    data: {
+      type: 'FeatureCollection',
+      features:
+        pendingMark && routes
+          ? routes.geojson.features
+              .filter(
+                (f) =>
+                  f.geometry.type === 'LineString' &&
+                  (pendingMark.stretches
+                    ? pendingMark.stretches.includes(f.properties.id)
+                    : f.properties.route === pendingMark.route),
+              )
+              // White when unmarking: grey dashes would vanish on the grey manual stripe.
+              .map((f) => ({
+                ...f,
+                properties: { ...f.properties, color: pendingMark.on ? MANUAL_COLOR : '#ffffff' },
+              }))
+          : [],
+    },
+    dataDeps: [pendingMark, routes],
+  });
 
   useEffect(() => {
     if (!marking || !enabled) return undefined;
@@ -195,11 +271,15 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
         ],
         { layers: [bandId] },
       );
-      const unique = [
-        ...new Map(
-          hits.map((f) => [`${f.properties.route}:${f.properties.id}`, f.properties]),
-        ).values(),
-      ];
+      // Per route, only the stretch nearest the tap: two stretches of one street
+      // would give two menu entries with the same label.
+      const nearest = new Map();
+      hits.forEach((f) => {
+        const distance = tapDistance(event.point, f);
+        const best = nearest.get(f.properties.route);
+        if (!best || distance < best.distance) nearest.set(f.properties.route, { distance, f });
+      });
+      const unique = [...nearest.values()].map(({ f }) => f.properties);
       if (unique.length) {
         setMenu({
           left: event.originalEvent.clientX,
@@ -214,15 +294,14 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
   }, [marking, enabled, bandId]);
 
   const run = async (mark) => {
-    setPending(true);
+    setMenu(null);
+    setPendingMark({ stretches: mark.stretches, route: mark.route, on: mark.on });
     setError(null);
     try {
       await report(mark);
-      setMenu(null);
     } catch (e) {
+      setPendingMark(null);
       setError(`Markering feilet (${e.message || 'ukjent feil'}). Prøv igjen.`);
-    } finally {
-      setPending(false);
     }
   };
 
@@ -292,6 +371,7 @@ const MapPlannedRoutes = ({ routes, traces, trackWindow }) => {
             error={error}
             onMarkingChange={setMarking}
             onToggleRoute={toggleRoute}
+            defaultCollapsed={!markable}
           />,
           container,
         )}

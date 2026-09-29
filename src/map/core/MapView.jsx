@@ -68,7 +68,7 @@ const initMap = async () => {
   }
 };
 
-const MapView = ({ children }) => {
+const MapView = ({ children, hideSettings }) => {
   const theme = useTheme();
 
   const containerRef = useRef(null);
@@ -148,7 +148,12 @@ const MapView = ({ children }) => {
 
   return (
     <div style={{ width: '100%', height: '100%' }} ref={containerRef}>
-      <MapSwitcher styles={styles} selectedId={selectedStyleId} onSelect={setSelectedStyleId} />
+      <MapSwitcher
+        styles={styles}
+        selectedId={selectedStyleId}
+        onSelect={setSelectedStyleId}
+        hideSettings={hideSettings}
+      />
       {mapReady && children}
     </div>
   );

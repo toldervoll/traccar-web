@@ -80,11 +80,11 @@ const osloParts = (date) =>
       .map(({ type, value }) => [type, Number(value)]),
   );
 
-// 17:00 Oslo time on the Oslo date of `date`.
-const osloFivePm = (date) => {
+// `hour`:00 Oslo time on the Oslo date of `date`.
+export const osloHour = (date, hour) => {
   const { year, month, day } = osloParts(date);
-  const guess = new Date(Date.UTC(year, month - 1, day, 17));
-  return new Date(guess.getTime() - (osloParts(guess).hour - 17) * 3600000);
+  const guess = new Date(Date.UTC(year, month - 1, day, hour));
+  return new Date(guess.getTime() - (osloParts(guess).hour - hour) * 3600000);
 };
 
 // The time window of the event: from 17:00 Oslo, no end. Between 04:00 and 17:00
@@ -98,7 +98,7 @@ export const trackingWindow = (now = new Date(), search = window.location.search
   }
   const { hour } = osloParts(now);
   if (hour >= 4 && hour < 17) return { from: null, to: null };
-  return { from: osloFivePm(hour < 4 ? new Date(now.getTime() - 5 * 3600000) : now), to: null };
+  return { from: osloHour(hour < 4 ? new Date(now.getTime() - 5 * 3600000) : now, 17), to: null };
 };
 
 // No end to the window: the positions API needs a `to`.

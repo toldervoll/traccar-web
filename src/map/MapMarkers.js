@@ -10,10 +10,10 @@ import { findFonts, toMapCoordinates } from './core/mapUtil';
 const onMouseEnter = () => (map.getCanvas().style.cursor = 'pointer');
 const onMouseLeave = () => (map.getCanvas().style.cursor = '');
 
-const MapMarkers = ({ markers, showTitles, cluster, direction, onClick, disabled }) => {
+const MapMarkers = ({ markers, showTitles, cluster, direction, onClick, disabled, scale = 1 }) => {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
-  const iconScale = useAttributePreference('iconScale', desktop ? 0.75 : 1);
+  const iconScale = useAttributePreference('iconScale', desktop ? 0.75 : 1) * scale;
 
   const disabledRef = useRef(disabled);
   disabledRef.current = disabled;
