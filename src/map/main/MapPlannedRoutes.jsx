@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { Menu, MenuItem } from '@mui/material';
 import { map } from '../core/MapView';
 import useMapLayer from '../core/useMapLayer';
-import { FAR_FUTURE, isVan, routeColorExpression, vanColor } from './plannedRoutes';
+import { FAR_FUTURE, MANUAL_COLOR, isVan, routeColorExpression, vanColor } from './plannedRoutes';
 import { buildRouteIndex, computeCoverage, routeStatus, servicedFeatures } from './routeCoverage';
 import { buildMarkReport, marksFromPositions } from './manualMarks';
 import RouteLegend from './RouteLegend';
@@ -14,6 +14,31 @@ const THROTTLE_MS = 3000;
 const REQUEST_TIMEOUT_MS = 10000;
 const TAP_PADDING = 12;
 const noMarks = { stretches: {}, routes: {} };
+const PENDING_TIMEOUT_MS = 20000;
+
+const segmentDistance = (p, a, b) => {
+  const [dx, dy] = [b.x - a.x, b.y - a.y];
+  const t = dx || dy ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy) : 0;
+  const k = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + k * dx), p.y - (a.y + k * dy));
+};
+
+// Screen distance from a tap to a rendered line feature.
+const tapDistance = (point, feature) => {
+  const { type, coordinates } = feature.geometry;
+  const lines = type === 'MultiLineString' ? coordinates : [coordinates];
+  return Math.min(
+    ...lines.flatMap((line) =>
+      line.slice(1).map((c, i) => segmentDistance(point, map.project(line[i]), map.project(c))),
+    ),
+  );
+};
+
+// Whether the marks show a change that was sent.
+const reflected = (marks, { stretches, route, on }) =>
+  stretches
+    ? stretches.every((id) => (marks.stretches[id] !== undefined) === on)
+    : (marks.routes[route] !== undefined) === on;
 
 export const useRouteIndex = () => {
   const [routes, setRoutes] = useState(null);
@@ -115,7 +140,7 @@ const MapPlannedRoutes = ({
         lastRunRef.current = Date.now();
         const coverage = computeCoverage(routes.index, traces, marks);
         const stripes = servicedFeatures(routes.index, coverage, (van) => vanColor(devices[van]));
-        setResult({ coverage, stripes });
+        setResult({ coverage, stripes, marks });
       },
       Math.max(0, lastRunRef.current + THROTTLE_MS - Date.now()),
     );
@@ -181,8 +206,50 @@ const MapPlannedRoutes = ({
   // Marking mode: a tap on a band opens a menu for that stretch or street.
   const [marking, setMarking] = useState(false);
   const [menu, setMenu] = useState(null);
-  const [pending, setPending] = useState(false);
+  // The change in flight: from the tap until the stripes show it.
+  const [pendingMark, setPendingMark] = useState(null);
+  const pending = Boolean(pendingMark);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (pendingMark && result?.marks === marks && reflected(marks, pendingMark)) {
+      setPendingMark(null);
+    }
+  }, [pendingMark, result, marks]);
+
+  useEffect(() => {
+    if (!pendingMark) return undefined;
+    const timer = setTimeout(() => {
+      setPendingMark(null);
+      setError('Markeringen vises ikke ennå. Sjekk kartet før du prøver igjen.');
+    }, PENDING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [pendingMark]);
+
+  useMapLayer({
+    layers: [
+      {
+        type: 'line',
+        layout: { 'line-cap': 'butt', 'line-join': 'round' },
+        paint: { 'line-color': MANUAL_COLOR, 'line-width': 6, 'line-dasharray': [1, 1] },
+      },
+    ],
+    layersDeps: [],
+    data: {
+      type: 'FeatureCollection',
+      features:
+        pendingMark && routes
+          ? routes.geojson.features.filter(
+              (f) =>
+                f.geometry.type === 'LineString' &&
+                (pendingMark.stretches
+                  ? pendingMark.stretches.includes(f.properties.id)
+                  : f.properties.route === pendingMark.route),
+            )
+          : [],
+    },
+    dataDeps: [pendingMark, routes],
+  });
 
   useEffect(() => {
     if (!marking || !enabled) return undefined;
@@ -195,11 +262,15 @@ const MapPlannedRoutes = ({
         ],
         { layers: [bandId] },
       );
-      const unique = [
-        ...new Map(
-          hits.map((f) => [`${f.properties.route}:${f.properties.id}`, f.properties]),
-        ).values(),
-      ];
+      // Per route, only the stretch nearest the tap: two stretches of one street
+      // would give two menu entries with the same label.
+      const nearest = new Map();
+      hits.forEach((f) => {
+        const distance = tapDistance(event.point, f);
+        const best = nearest.get(f.properties.route);
+        if (!best || distance < best.distance) nearest.set(f.properties.route, { distance, f });
+      });
+      const unique = [...nearest.values()].map(({ f }) => f.properties);
       if (unique.length) {
         setMenu({
           left: event.originalEvent.clientX,
@@ -214,15 +285,14 @@ const MapPlannedRoutes = ({
   }, [marking, enabled, bandId]);
 
   const run = async (mark) => {
-    setPending(true);
+    setMenu(null);
+    setPendingMark({ stretches: mark.stretches, route: mark.route, on: mark.on });
     setError(null);
     try {
       await report(mark);
-      setMenu(null);
     } catch (e) {
+      setPendingMark(null);
       setError(`Markering feilet (${e.message || 'ukjent feil'}). Prøv igjen.`);
-    } finally {
-      setPending(false);
     }
   };
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Button, IconButton, Paper, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, Paper, Typography } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
@@ -134,6 +134,12 @@ const RouteLegend = ({
             </Box>
           );
         })}
+      {pending && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="caption">Lagrer markering…</Typography>
+        </Box>
+      )}
       {error && (
         <Typography variant="caption" color="error">
           {error}
