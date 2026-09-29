@@ -11,6 +11,8 @@ import {
   messagesFromPositions,
   messageWindow,
   okAnswers,
+  pinLabel,
+  pinsFor,
   retryDelay,
   unreadCount,
   visibleTo,
@@ -224,4 +226,85 @@ test('messageWindow is the event day, and a message from 23:50 and 01:00 is in i
   const morning = messageWindow(new Date('2026-10-10T04:30:00+02:00'), '');
   assert.ok(!inside(morning, '2026-10-09T23:50:00+02:00'));
   assert.ok(!inside(morning, '2026-10-10T01:00:00+02:00'));
+});
+
+const pin = { lat: 59.95, lon: 10.75, address: 'Tåsenveien 10A, 0853 OSLO' };
+
+test('a report with an address carries the three pin attributes', () => {
+  const report = body({ uniqueId: 'v', from: '5', to: MANAGER, text: 'Hent her', pin });
+  assert.equal(Number(report.msgLat), 59.95);
+  assert.equal(Number(report.msgLon), 10.75);
+  assert.equal(report.msgAddr, `${MSG_PREFIX}Tåsenveien 10A, 0853 OSLO`);
+  assert.equal(report.msgFrom, '5');
+  assert.equal(report.msgTo, 'leder');
+  assert.equal(Number(report.lon), BASE[0]);
+  assert.equal(Number(report.lat), BASE[1]);
+});
+
+test('a report without an address carries no pin attributes', () => {
+  const report = body({ uniqueId: 'v', from: MANAGER, to: '3', text: 'Hei' });
+  ['msgLat', 'msgLon', 'msgAddr'].forEach((key) => assert.equal(report[key], undefined));
+});
+
+const pinned = (id, from, to, attributes = {}) =>
+  msg(id, from, to, 'x', {
+    msgLat: 59.95,
+    msgLon: 10.75,
+    msgAddr: 't:Tåsenveien 10A, 0853 OSLO',
+    ...attributes,
+  });
+
+test('a position with valid pin attributes gives a message with a pin', () => {
+  const [message] = messagesFromPositions([pinned(1, 'leder', '3')], vans);
+  assert.deepEqual(message.pin, pin);
+  const [numeric] = messagesFromPositions([pinned(2, 'leder', '3', { msgAddr: 't:10' })], vans);
+  assert.equal(numeric.pin.address, '10');
+});
+
+test('a bad pin is dropped and the message stays', () => {
+  const messages = messagesFromPositions(
+    [
+      pinned(1, 'leder', '3', { msgLat: 'abc' }),
+      pinned(2, 'leder', '3', { msgLat: 91 }),
+      pinned(3, 'leder', '3', { msgLon: undefined }),
+      pinned(4, 'leder', '3', { msgAddr: `t:${'x'.repeat(500)}` }),
+    ],
+    vans,
+  );
+  assert.equal(messages.length, 4);
+  messages.forEach((m) => assert.equal(m.pin, null));
+});
+
+const pinMessages = messagesFromPositions(
+  [
+    pinned(1, 'leder', '3'),
+    pinned(2, 'leder', 'alle'),
+    pinned(3, 'leder', '5'),
+    pinned(4, '5', 'leder'),
+    msg(5, 'leder', '3'),
+  ],
+  vans,
+);
+const pinIds = (pins) => pins.map((p) => p.id);
+
+test('pins of a van: to it, to alle, and what it sent (AE13, AE17)', () => {
+  assert.deepEqual(pinIds(pinsFor(pinMessages, '3', [])), [1, 2]);
+  assert.deepEqual(pinIds(pinsFor(pinMessages, '5', [])), [2, 3, 4]);
+  assert.deepEqual(pinIds(pinsFor(pinMessages, MANAGER, [])), [1, 2, 3, 4]);
+});
+
+test('the van of a pin: recipient of the manager, sender of a driver, alle (AE13, AE17)', () => {
+  const vansOf = Object.fromEntries(pinsFor(pinMessages, MANAGER, []).map((p) => [p.id, p.van]));
+  assert.deepEqual(vansOf, { 1: '3', 2: 'alle', 3: '5', 4: '5' });
+});
+
+test('a removed pin is left out, and the message stays (AE15, AE18)', () => {
+  assert.deepEqual(pinIds(pinsFor(pinMessages, '3', [1])), [2]);
+  assert.deepEqual(ids(visibleTo(pinMessages, '3')), [1, 2, 5]);
+  assert.deepEqual(pinIds(pinsFor(pinMessages, '3', [])), [1, 2]);
+});
+
+test('pinLabel reads as a destination (R34)', () => {
+  assert.equal(pinLabel('Bil 3', 'Tåsenveien 10A, 0853 OSLO'), 'Bil 3 → Tåsenveien 10A');
+  assert.ok(pinLabel('Alle', 'Tåsenveien 10A, 0853 OSLO').startsWith('Alle'));
 });
