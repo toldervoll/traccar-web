@@ -139,7 +139,7 @@ const DriverSetup = ({ device, status }) => {
     <Paper
       square
       elevation={4}
-      sx={{ px: 2, py: 1, maxHeight: open ? '70vh' : 'none', overflowY: 'auto', zIndex: 3 }}
+      sx={{ px: 2, py: 1, maxHeight: open ? '45vh' : 'none', overflowY: 'auto', zIndex: 3 }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
