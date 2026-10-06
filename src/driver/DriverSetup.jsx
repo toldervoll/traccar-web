@@ -137,6 +137,18 @@ const DriverSetup = ({ device, status }) => {
       <Button size="small" variant="outlined" color="error" onClick={() => setConfirmStop(true)}>
         Stopp sporing
       </Button>
+      {/* Collapsed, the section is this one row. */}
+      {!open && (
+        <Button
+          size="small"
+          endIcon={<ExpandLessIcon />}
+          onClick={() => setOpen(true)}
+          aria-label="Vis oppsett"
+          sx={{ ml: 'auto', minWidth: 0 }}
+        >
+          Oppsett
+        </Button>
+      )}
     </Box>
   );
 
@@ -144,20 +156,32 @@ const DriverSetup = ({ device, status }) => {
     <Paper
       square
       elevation={4}
-      sx={{ px: 2, py: 1, maxHeight: open ? '45vh' : 'none', overflowY: 'auto', zIndex: 3 }}
+      sx={{ px: 2, pb: 1, maxHeight: open ? '45vh' : 'none', overflowY: 'auto', zIndex: 3 }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
-          Oppsett av sporing
-        </Typography>
-        <IconButton
-          size="small"
-          onClick={() => setOpen(!open)}
-          aria-label={open ? 'Skjul oppsett' : 'Vis oppsett'}
+      {open && (
+        // Stays in view while the steps scroll, so the collapse button is always at hand.
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            // Spans the padding of the section, edge to edge.
+            mx: -2,
+            px: 2,
+            pt: 1,
+            bgcolor: 'background.paper',
+          }}
         >
-          {open ? <ExpandMoreIcon /> : <ExpandLessIcon />}
-        </IconButton>
-      </Box>
+          <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
+            Oppsett av sporing
+          </Typography>
+          <IconButton size="small" onClick={() => setOpen(false)} aria-label="Skjul oppsett">
+            <ExpandMoreIcon />
+          </IconButton>
+        </Box>
+      )}
       {open && (
         <>
           {status.state === 'tracked' && (
