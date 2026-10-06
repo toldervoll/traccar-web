@@ -5,10 +5,16 @@ import { map } from '../map/core/MapView';
 import { toMapCoordinates } from '../map/core/mapUtil';
 import MapMarkers from '../map/MapMarkers';
 import { directionsLink } from './driverLink';
-import { ALL, MANAGER, pinLabel } from './messages';
+import { ALL, MANAGER, pinLabel, streetOf } from './messages';
 
-export const showOnMap = ({ lat, lon }) =>
-  map.easeTo({ center: toMapCoordinates(lon, lat), zoom: Math.max(map.getZoom(), 16) });
+// `abovePanel` puts the point in the top quarter of the map, clear of an open panel,
+// which sits in the middle of the screen.
+export const showOnMap = ({ lat, lon }, abovePanel = false) =>
+  map.easeTo({
+    center: toMapCoordinates(lon, lat),
+    zoom: Math.max(map.getZoom(), 16),
+    offset: [0, abovePanel ? -map.getContainer().clientHeight / 4 : 0],
+  });
 
 export const useNameOf = () => {
   const devices = useSelector((state) => state.devices.items);
@@ -23,7 +29,7 @@ export const useNameOf = () => {
 };
 
 // The pins of the viewer's messages (plan U9). Labels on the main map only (R34).
-const MessagePins = ({ pins, onRemove, labels }) => {
+const MessagePins = ({ pins, onRemove, labels, draft }) => {
   const nameOf = useNameOf();
   const [selectedId, setSelectedId] = useState(null);
   const selected = pins.find((pin) => pin.id === selectedId);
@@ -35,16 +41,39 @@ const MessagePins = ({ pins, onRemove, labels }) => {
         latitude: pin.lat,
         longitude: pin.lon,
         image: 'default-info',
-        title: labels ? pinLabel(pin.van === ALL ? 'Alle' : nameOf(pin.van), pin.address) : '',
+        title: labels
+          ? pinLabel(
+              pin.van === ALL ? 'Alle' : nameOf(pin.van),
+              pin.address,
+              pin.message.from === MANAGER,
+            )
+          : '',
       })),
     [pins, labels, nameOf],
   );
 
   const onClick = useCallback((properties) => setSelectedId(properties.id), []);
 
+  const draftMarkers = useMemo(
+    () =>
+      draft
+        ? [
+            {
+              id: 0,
+              latitude: draft.lat,
+              longitude: draft.lon,
+              image: 'default-error',
+              title: streetOf(draft.address),
+            },
+          ]
+        : [],
+    [draft],
+  );
+
   return (
     <>
       <MapMarkers markers={markers} showTitles={labels} onClick={onClick} />
+      <MapMarkers markers={draftMarkers} showTitles />
       <Dialog open={Boolean(selected)} onClose={() => setSelectedId(null)} maxWidth="xs" fullWidth>
         {selected && (
           <DialogContent>

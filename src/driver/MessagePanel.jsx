@@ -143,7 +143,7 @@ const AddressField = ({ query, onQueryChange, pin, onPin, onShow, disabled }) =>
               key={`${match.label}-${match.lat}-${match.lon}`}
               onClick={() => {
                 onPin({ lat: match.lat, lon: match.lon, address: match.label });
-                showOnMap(match);
+                showOnMap(match, true);
               }}
             >
               <ListItemText primary={match.label} />
@@ -187,11 +187,16 @@ const Message = ({ message, viewer, data, nameOf, now, onShowPin }) => {
           </Button>
         </Box>
       )}
-      {answers && (
+      {answers?.ok.length > 0 && (
         <Typography variant="caption" component="div">
-          {`OK: ${answers.ok.map(nameOf).join(', ') || '–'}`}
-          {answers.missing.length > 0 && ` · Mangler: ${answers.missing.map(nameOf).join(', ')}`}
-          {` · ${formatAge(Math.max(0, Math.round((now - message.time) / 1000)))}`}
+          {[
+            `OK: ${answers.ok.map(nameOf).join(', ')}`,
+            answers.missing.length > 0 &&
+              `Venter på OK fra: ${answers.missing.map(nameOf).join(', ')}`,
+            formatAge(Math.max(0, Math.round((now - message.time) / 1000))),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </Typography>
       )}
       {incomingFromManager &&
@@ -221,12 +226,12 @@ const MessagePanel = ({ viewer, data, buttonSx, bannerSx }) => {
   const [error, setError] = useState(null);
   const [dismissed, setDismissed] = useState(null);
   const [addressQuery, setAddressQuery] = useState('');
-  const [pin, setPin] = useState(null);
+  const { draftPin: pin, setDraftPin: setPin } = data;
   const endRef = useRef(null);
 
-  // On a phone the panel covers the map, so it closes first.
+  // The panel covers the map, so it closes first. The draft stays.
   const showPin = (point) => {
-    if (phone) setOpen(false);
+    setOpen(false);
     showOnMap(point);
   };
 

@@ -120,5 +120,9 @@ export const pinsFor = (messages, viewer, removed) =>
     .filter((m) => m.pin && !removed.includes(m.id))
     .map((m) => ({ id: m.id, ...m.pin, message: m, van: m.from === MANAGER ? m.to : m.from }));
 
-// "Bil 3 → Tåsenveien 10A": the street address without postal code and place (R34).
-export const pinLabel = (vanName, address) => `${vanName} → ${address.split(',')[0]}`;
+// "Tåsenveien 10A": the street address without postal code and place (R34).
+export const streetOf = (address) => address.split(',')[0];
+
+// "Bil 3 → Tåsenveien 10A" from a van, "Tåsenveien 10A → Bil 3" from the manager.
+export const pinLabel = (vanName, address, fromManager = false) =>
+  fromManager ? `${streetOf(address)} → ${vanName}` : `${vanName} → ${streetOf(address)}`;
