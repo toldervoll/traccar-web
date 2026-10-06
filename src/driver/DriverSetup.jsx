@@ -21,6 +21,7 @@ import {
   configLink,
   directionsLink,
   formatAge,
+  platformOf,
   trackingStatus,
 } from './driverLink';
 
@@ -117,6 +118,10 @@ const Step = ({ number, title, children }) => (
 const DriverSetup = ({ device, status }) => {
   const [open, setOpen] = useState(!status.trackedOnce);
   const [confirmStop, setConfirmStop] = useState(false);
+  // Only the phone's own platform is shown. An unknown platform shows both.
+  const platform = platformOf(navigator.userAgent, navigator.maxTouchPoints);
+  const ios = platform !== 'android';
+  const android = platform !== 'ios';
 
   const links = (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
@@ -162,13 +167,17 @@ const DriverSetup = ({ device, status }) => {
           )}
           <Step number={1} title="Installer Traccar Client">
             <Typography variant="body2">
-              <Link href={APP_STORE} target="_blank" rel="noopener">
-                App Store (iPhone)
-              </Link>
-              {' · '}
-              <Link href={GOOGLE_PLAY} target="_blank" rel="noopener">
-                Google Play (Android)
-              </Link>
+              {ios && (
+                <Link href={APP_STORE} target="_blank" rel="noopener">
+                  {platform ? 'App Store' : 'App Store (iPhone)'}
+                </Link>
+              )}
+              {!platform && ' · '}
+              {android && (
+                <Link href={GOOGLE_PLAY} target="_blank" rel="noopener">
+                  {platform ? 'Google Play' : 'Google Play (Android)'}
+                </Link>
+              )}
             </Typography>
           </Step>
           <Step number={2} title="Sett opp appen">
@@ -180,12 +189,19 @@ const DriverSetup = ({ device, status }) => {
             </Typography>
           </Step>
           <Step number={3} title="Gi appen tillatelser">
-            <Typography variant="body2">
-              iPhone: Stedstjenester «Alltid» og «Nøyaktig posisjon» på.
-            </Typography>
-            <Typography variant="body2">
-              Android: Posisjon «Tillat hele tiden», og slå av batterioptimalisering for appen.
-            </Typography>
+            {ios && (
+              <Typography variant="body2">
+                {!platform && 'iPhone: '}
+                Stedstjenester «Alltid» og «Nøyaktig posisjon» på.
+              </Typography>
+            )}
+            {android && (
+              <Typography variant="body2">
+                {!platform && 'Android: '}
+                Posisjon «Tillat hele tiden», og slå av batterioptimalisering for appen. Spør appen
+                om fysisk aktivitet, kan du svare «Ikke tillat».
+              </Typography>
+            )}
           </Step>
           <Step number={4} title="Start sporing">
             <Button size="small" variant="contained" href={START_LINK}>

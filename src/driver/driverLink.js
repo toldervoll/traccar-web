@@ -28,6 +28,15 @@ export const configLink = (uniqueId) =>
 export const setupQrAddress = (uniqueId) =>
   `${INTAKE_URL}?${new URLSearchParams({ id: uniqueId, ...TRACKER_SETTINGS })}`;
 
+// 'android', 'ios', or null when unknown; the setup then shows both. An iPad reports as
+// a Mac with a touch screen.
+export const platformOf = (userAgent, maxTouchPoints = 0) => {
+  if (/Android/i.test(userAgent)) return 'android';
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return 'ios';
+  if (/Macintosh/i.test(userAgent) && maxTouchPoints > 1) return 'ios';
+  return null;
+};
+
 export const directionsLink = (lat, lon) =>
   `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
 

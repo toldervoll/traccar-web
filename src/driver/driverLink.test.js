@@ -9,6 +9,7 @@ import {
   configLink,
   directionsLink,
   driverLink,
+  platformOf,
   eventDayWindow,
   formatAge,
   setupQrAddress,
@@ -63,6 +64,21 @@ test('a uniqueId with a space or & survives both forms', () => {
 test('start and stop links', () => {
   assert.equal(START_LINK, 'org.traccar.client://action/start');
   assert.equal(STOP_LINK, 'org.traccar.client://action/stop');
+});
+
+test('platformOf tells Android, iPhone and iPad apart, and gives null for the rest', () => {
+  const android =
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+  const iphone =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+  const mac =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+  assert.equal(platformOf(android, 5), 'android');
+  assert.equal(platformOf(iphone, 5), 'ios');
+  assert.equal(platformOf(mac, 5), 'ios');
+  assert.equal(platformOf(mac, 0), null);
+  assert.equal(platformOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), null);
+  assert.equal(platformOf(''), null);
 });
 
 test('directionsLink puts the latitude before the longitude', () => {
