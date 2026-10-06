@@ -7,6 +7,8 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 export default defineConfig(() => ({
   server: {
     port: 3000,
+    // Phones reach the dev server over Tailscale.
+    allowedHosts: ['.ts.net'],
     proxy: {
       '/api/socket': {
         target: 'wss://kart.koredu.no',
