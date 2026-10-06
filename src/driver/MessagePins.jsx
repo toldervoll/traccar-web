@@ -5,7 +5,7 @@ import { map } from '../map/core/MapView';
 import { toMapCoordinates } from '../map/core/mapUtil';
 import MapMarkers from '../map/MapMarkers';
 import { directionsLink } from './driverLink';
-import { ALL, MANAGER, pinLabel } from './messages';
+import { ALL, MANAGER, pinLabel, streetOf } from './messages';
 
 // `abovePanel` puts the point in the top quarter of the map, clear of an open panel,
 // which sits in the middle of the screen.
@@ -41,7 +41,13 @@ const MessagePins = ({ pins, onRemove, labels, draft }) => {
         latitude: pin.lat,
         longitude: pin.lon,
         image: 'default-info',
-        title: labels ? pinLabel(pin.van === ALL ? 'Alle' : nameOf(pin.van), pin.address) : '',
+        title: labels
+          ? pinLabel(
+              pin.van === ALL ? 'Alle' : nameOf(pin.van),
+              pin.address,
+              pin.message.from === MANAGER,
+            )
+          : '',
       })),
     [pins, labels, nameOf],
   );
@@ -57,7 +63,7 @@ const MessagePins = ({ pins, onRemove, labels, draft }) => {
               latitude: draft.lat,
               longitude: draft.lon,
               image: 'default-error',
-              title: 'Ny adresse',
+              title: streetOf(draft.address),
             },
           ]
         : [],

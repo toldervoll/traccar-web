@@ -307,4 +307,5 @@ test('a removed pin is left out, and the message stays (AE15, AE18)', () => {
 test('pinLabel reads as a destination (R34)', () => {
   assert.equal(pinLabel('Bil 3', 'Tåsenveien 10A, 0853 OSLO'), 'Bil 3 → Tåsenveien 10A');
   assert.ok(pinLabel('Alle', 'Tåsenveien 10A, 0853 OSLO').startsWith('Alle'));
+  assert.equal(pinLabel('Bil 3', 'Tåsenveien 10A, 0853 OSLO', true), 'Tåsenveien 10A → Bil 3');
 });
