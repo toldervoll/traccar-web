@@ -13,6 +13,10 @@ export default defineConfig(() => ({
         changeOrigin: true,
         ws: true,
         secure: true,
+        // The server refuses a socket upgrade that carries the dev server's Origin.
+        configure: (proxy) => {
+          proxy.on('proxyReqWs', (proxyReq) => proxyReq.removeHeader('origin'));
+        },
       },
       '/api': {
         target: 'https://kart.koredu.no',
