@@ -51,7 +51,7 @@ const useStyles = makeStyles()(() => ({
   },
 }));
 
-const MapSwitcher = ({ styles, selectedId, onSelect }) => {
+const MapSwitcher = ({ styles, selectedId, onSelect, hideSettings }) => {
   const theme = useTheme();
   const t = useTranslation();
   const navigate = useNavigate();
@@ -137,18 +137,20 @@ const MapSwitcher = ({ styles, selectedId, onSelect }) => {
           <Switch edge="end" size="small" checked={!hidden.includes(title)} onChange={() => {}} />
         </MenuItem>
       ))}
-      <Divider />
-      <MenuItem
-        onClick={() => {
-          setAnchorEl(null);
-          navigate('/settings/preferences');
-        }}
-      >
-        <ListItemIcon>
-          <TuneIcon fontSize="small" />
-        </ListItemIcon>
-        <ListItemText>{t('sharedPreferences')}</ListItemText>
-      </MenuItem>
+      {!hideSettings && <Divider />}
+      {!hideSettings && (
+        <MenuItem
+          onClick={() => {
+            setAnchorEl(null);
+            navigate('/settings/preferences');
+          }}
+        >
+          <ListItemIcon>
+            <TuneIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t('sharedPreferences')}</ListItemText>
+        </MenuItem>
+      )}
     </Menu>
   );
 };

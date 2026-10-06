@@ -13,6 +13,10 @@ import EventsDrawer from './EventsDrawer';
 import useFilter from './useFilter';
 import MainToolbar from './MainToolbar';
 import { useAttributePreference } from '../common/util/preferences';
+import { useAdministrator } from '../common/util/permissions';
+import useMessages from '../driver/useMessages';
+import MessagePanel from '../driver/MessagePanel';
+import { MANAGER } from '../driver/messages';
 
 const MainMap = lazy(() => import('./MainMap'));
 
@@ -73,6 +77,9 @@ const MainPage = () => {
 
   const mapOnSelect = useAttributePreference('mapOnSelect', true);
 
+  const administrator = useAdministrator();
+  const messages = useMessages(administrator ? MANAGER : null);
+
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
   const positions = useSelector((state) => state.session.positions);
   const [filteredPositions, setFilteredPositions] = useState([]);
@@ -120,6 +127,7 @@ const MainPage = () => {
             filteredPositions={filteredPositions}
             selectedPosition={selectedPosition}
             onEventsClick={onEventsClick}
+            messages={messages.enabled ? messages : null}
           />
         </Suspense>
       )}
@@ -147,6 +155,7 @@ const MainPage = () => {
                   filteredPositions={filteredPositions}
                   selectedPosition={selectedPosition}
                   onEventsClick={onEventsClick}
+                  messages={messages.enabled ? messages : null}
                 />
               </Suspense>
             </div>
@@ -166,6 +175,14 @@ const MainPage = () => {
         )}
       </div>
       <EventsDrawer open={eventsOpen} onClose={() => setEventsOpen(false)} />
+      {messages.enabled && (
+        <MessagePanel
+          viewer={MANAGER}
+          data={messages}
+          buttonSx={{ position: 'fixed', right: 16, bottom: desktop ? 40 : 88 }}
+          bannerSx={{ position: 'fixed', top: desktop ? 16 : 72 }}
+        />
+      )}
       {selectedDeviceId && (
         <StatusCard
           deviceId={selectedDeviceId}
