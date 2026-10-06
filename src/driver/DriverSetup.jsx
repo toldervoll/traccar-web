@@ -198,7 +198,8 @@ const DriverSetup = ({ device, status }) => {
             {android && (
               <Typography variant="body2">
                 {!platform && 'Android: '}
-                Posisjon «Tillat hele tiden», og slå av batterioptimalisering for appen.
+                Posisjon «Tillat hele tiden», og slå av batterioptimalisering for appen. Spør appen
+                om fysisk aktivitet, kan du svare «Ikke tillat».
               </Typography>
             )}
           </Step>
