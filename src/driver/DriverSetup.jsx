@@ -18,6 +18,7 @@ import { BASE, INTAKE_URL } from '../map/main/plannedRoutes';
 import {
   START_LINK,
   STOP_LINK,
+  TRACKER_SETTINGS,
   configLink,
   directionsLink,
   formatAge,
@@ -27,6 +28,10 @@ import {
 
 const APP_STORE = 'https://apps.apple.com/app/id843156974';
 const GOOGLE_PLAY = 'https://play.google.com/store/apps/details?id=org.traccar.client';
+
+// The names of the settings as Traccar Client shows them (v10.1.2, not translated).
+const ACCURACY_LABELS = { highest: 'Highest', high: 'High', medium: 'Medium', low: 'Low' };
+const onOff = (value) => (value ? 'på' : 'av');
 
 const trackedKey = (deviceId) => `driverTracked:${deviceId}`;
 
@@ -214,9 +219,15 @@ const DriverSetup = ({ device, status }) => {
           </Step>
           <Step number={3} title="Gi appen tillatelser">
             {ios && (
-              <Typography variant="body2">
-                {!platform && 'iPhone: '}
-                Stedstjenester «Alltid» og «Nøyaktig posisjon» på.
+              <Typography variant="body2" component="div">
+                <div>
+                  {!platform && 'iPhone: '}
+                  Stedstjenester «Alltid» og «Nøyaktig posisjon» på.
+                </div>
+                <div>«Bakgrunnsoppdatering» på, under Innstillinger og Generelt.</div>
+                <div>«Strømsparingsmodus» av, under Innstillinger og Batteri.</div>
+                <div>Ikke sveip bort appen. Da stopper sporingen.</div>
+                <div>Spør telefonen senere om stedstilgangen, velg «Tillat alltid».</div>
               </Typography>
             )}
             {android && (
@@ -238,10 +249,28 @@ const DriverSetup = ({ device, status }) => {
           </Step>
           <Box sx={{ mt: 1.5 }}>
             <Typography variant="caption" color="text.secondary">
-              For oppsett for hånd:
+              For oppsett for hånd, i stedet for knappen i steg 2:
             </Typography>
-            <CopyText label="Server" value={INTAKE_URL} />
-            <CopyText label="Identifikator" value={device.uniqueId} />
+            <Typography variant="body2">
+              Trykk «Change settings» i appen og sett disse verdiene, i denne rekkefølgen. Navnene
+              står på engelsk i appen.
+            </Typography>
+            <CopyText label="Device identifier" value={device.uniqueId} />
+            <CopyText label="Server URL" value={INTAKE_URL} />
+            <Typography variant="body2" component="div">
+              <div>{`Location accuracy: ${ACCURACY_LABELS[TRACKER_SETTINGS.accuracy]}`}</div>
+              <div>{`Distance (meters): ${TRACKER_SETTINGS.distance}`}</div>
+              <div>{`Interval (seconds): ${TRACKER_SETTINGS.interval}`}</div>
+              <div>Slå på «Advanced settings», og sett så:</div>
+              <div>{`Offline buffering: ${onOff(TRACKER_SETTINGS.buffer)}`}</div>
+              <div>{`Stop detection: ${onOff(TRACKER_SETTINGS.stop_detection)}`}</div>
+              {android && (
+                <div>
+                  {`${platform ? '' : 'Android: '}Wake lock: ${onOff(TRACKER_SETTINGS.wakelock)}`}
+                </div>
+              )}
+              <div>Gå tilbake, og fortsett med steg 3 og 4.</div>
+            </Typography>
           </Box>
         </>
       )}
