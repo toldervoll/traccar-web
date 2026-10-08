@@ -14,6 +14,7 @@ import {
   formatAge,
   setupQrAddress,
   sparseTracking,
+  sparseVanIds,
   trackingStatus,
   untrackedVans,
 } from './driverLink.js';
@@ -241,4 +242,15 @@ test('sparseTracking flags few fixes in the last 10 minutes, not a van that just
   assert.equal(sparseTracking([], start, now), true);
   assert.equal(sparseTracking(every(300), now - 60000, now), false);
   assert.equal(sparseTracking([], undefined, now), false);
+});
+
+test('sparseVanIds gives the sparse vans of a running window, none outside it', () => {
+  const now = Date.parse('2026-04-10T18:00:00Z');
+  const start = now - 3600000;
+  const dense = Array.from({ length: 60 }, (_, i) => now - i * 8000);
+  const traces = { 9: [{ time: start }], 4: [{ time: start }], 5: [] };
+  const fixTimes = { 9: [now - 5000], 4: dense, 5: [] };
+  assert.deepEqual(sparseVanIds(traces, fixTimes, { from: start, to: null, now }), [9]);
+  assert.deepEqual(sparseVanIds(traces, fixTimes, { from: null, to: null, now }), []);
+  assert.deepEqual(sparseVanIds(traces, fixTimes, { from: start, to: now, now }), []);
 });

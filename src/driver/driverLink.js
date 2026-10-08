@@ -65,6 +65,15 @@ export const sparseTracking = (fixTimes = [], firstTime, now) => {
   return fixTimes.filter((time) => time > from && time <= now).length < SPARSE_MIN_FIXES;
 };
 
+// The ids of the vans with sparse tracking. Only for the running event: the fix times
+// are counted against the clock, so a window with an end gives none.
+export const sparseVanIds = (traces, fixTimes, { from, to, now }) =>
+  from === null || to !== null
+    ? []
+    : Object.keys(traces)
+        .filter((id) => sparseTracking(fixTimes[id], traces[id][0]?.time, now))
+        .map(Number);
+
 export const formatAge = (age) => {
   if (age === null) return '';
   if (age < 60) return `${age} s`;

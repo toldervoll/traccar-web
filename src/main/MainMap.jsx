@@ -23,7 +23,7 @@ import MapRuler from '../map/control/MapRuler';
 import MapNotification from '../map/control/MapNotification';
 import useFeatures from '../common/util/useFeatures';
 import UntrackedVans from '../driver/UntrackedVans';
-import { sparseTracking } from '../driver/driverLink';
+import { sparseVanIds } from '../driver/driverLink';
 import MessagePins from '../driver/MessagePins';
 
 const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, messages }) => {
@@ -40,14 +40,9 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, messages 
 
   const trackWindow = useTrackingWindow();
   const { traces, fixTimes } = useDayTraces(trackWindow);
-  // Only for the running event: the fix times are counted against the clock.
-  const live = trackWindow.from !== null && trackWindow.to === null;
   const sparseDeviceIds = useMemo(
-    () =>
-      Object.keys(traces)
-        .filter((id) => live && sparseTracking(fixTimes[id], traces[id][0]?.time, trackWindow.now))
-        .map(Number),
-    [traces, fixTimes, live, trackWindow.now],
+    () => sparseVanIds(traces, fixTimes, trackWindow),
+    [traces, fixTimes, trackWindow],
   );
   const routes = useRouteIndex();
 
