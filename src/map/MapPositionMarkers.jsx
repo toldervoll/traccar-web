@@ -16,6 +16,7 @@ const MapPositionMarkers = ({
   titleField,
   disabled,
   ownDeviceId,
+  sparseDeviceIds,
 }) => {
   const devices = useSelector((state) => state.devices.items);
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
@@ -55,7 +56,9 @@ const MapPositionMarkers = ({
     const color = showStatus
       ? position.attributes.color || getStatusColor(device.status)
       : 'neutral';
-    const titles = { name: device.name, fixTime: formatTime(position.fixTime, 'seconds') };
+    // Plain text: the map fonts have no warning sign.
+    const name = sparseDeviceIds?.includes(position.deviceId) ? `${device.name} (!)` : device.name;
+    const titles = { name, fixTime: formatTime(position.fixTime, 'seconds') };
     return {
       id: position.id,
       deviceId: position.deviceId,

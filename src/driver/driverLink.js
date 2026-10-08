@@ -50,6 +50,21 @@ export const trackingStatus = (position, socket, now = new Date()) => {
   return { state: age !== null && age <= STATUS_MAX_AGE_S ? 'tracked' : 'untracked', age };
 };
 
+// Calibrated against the April 2026 event: two phones on the app's default settings stayed
+// under 10 fixes per 10 minutes all evening; the slowest good phone sent about 45.
+export const SPARSE_WINDOW_S = 600;
+export const SPARSE_MIN_FIXES = 10;
+
+// True when a van has been tracked for a full window and sent few fixes in the last one.
+// fixTimes and firstTime are in ms; firstTime is the van's first fix of the day.
+// ponytail: counts fixes only, so a phone with a distance filter that drives nonstop
+// passes; compare the spacing of the fixes if that turns up.
+export const sparseTracking = (fixTimes = [], firstTime, now) => {
+  const from = now - SPARSE_WINDOW_S * 1000;
+  if (firstTime === undefined || firstTime > from) return false;
+  return fixTimes.filter((time) => time > from && time <= now).length < SPARSE_MIN_FIXES;
+};
+
 export const formatAge = (age) => {
   if (age === null) return '';
   if (age < 60) return `${age} s`;

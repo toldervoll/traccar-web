@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useDispatch, useSelector } from 'react-redux';
@@ -23,6 +23,7 @@ import MapRuler from '../map/control/MapRuler';
 import MapNotification from '../map/control/MapNotification';
 import useFeatures from '../common/util/useFeatures';
 import UntrackedVans from '../driver/UntrackedVans';
+import { sparseTracking } from '../driver/driverLink';
 import MessagePins from '../driver/MessagePins';
 
 const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, messages }) => {
@@ -38,7 +39,16 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, messages 
   const [rulerActive, setRulerActive] = useState(false);
 
   const trackWindow = useTrackingWindow();
-  const traces = useDayTraces(trackWindow);
+  const { traces, fixTimes } = useDayTraces(trackWindow);
+  // Only for the running event: the fix times are counted against the clock.
+  const live = trackWindow.from !== null && trackWindow.to === null;
+  const sparseDeviceIds = useMemo(
+    () =>
+      Object.keys(traces)
+        .filter((id) => live && sparseTracking(fixTimes[id], traces[id][0]?.time, trackWindow.now))
+        .map(Number),
+    [traces, fixTimes, live, trackWindow.now],
+  );
   const routes = useRouteIndex();
 
   const onMarkerClick = useCallback(
@@ -72,6 +82,7 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, messages 
           onMarkerClick={onMarkerClick}
           selectedPosition={selectedPosition}
           showStatus
+          sparseDeviceIds={sparseDeviceIds}
           disabled={rulerActive}
         />
         <MapDefaultCamera filteredPositions={filteredPositions} />

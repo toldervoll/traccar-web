@@ -13,6 +13,7 @@ import {
   eventDayWindow,
   formatAge,
   setupQrAddress,
+  sparseTracking,
   trackingStatus,
   untrackedVans,
 } from './driverLink.js';
@@ -228,4 +229,16 @@ test('untrackedVans: a done van that reports loses its mark, then is listed agai
     reporting.done,
   );
   assert.deepEqual(names(silent), ['Bil 6']);
+});
+
+test('sparseTracking flags few fixes in the last 10 minutes, not a van that just started', () => {
+  const now = Date.parse('2026-04-10T18:00:00Z');
+  const every = (seconds) =>
+    Array.from({ length: 600 / seconds }, (_, i) => now - i * seconds * 1000);
+  const start = now - 3600000;
+  assert.equal(sparseTracking(every(8), start, now), false);
+  assert.equal(sparseTracking(every(300), start, now), true);
+  assert.equal(sparseTracking([], start, now), true);
+  assert.equal(sparseTracking(every(300), now - 60000, now), false);
+  assert.equal(sparseTracking([], undefined, now), false);
 });

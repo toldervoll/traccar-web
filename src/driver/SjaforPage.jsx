@@ -41,7 +41,7 @@ const SjaforPage = () => {
   const messages = useMessages(known ? String(deviceId) : null);
 
   const trackWindow = useTrackingWindow();
-  const traces = useDayTraces(trackWindow);
+  const { traces } = useDayTraces(trackWindow);
   const routes = useRouteIndex();
   useFitRoute(known ? routes : null, mainRouteOf(device));
 
