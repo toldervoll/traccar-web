@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FAR_FUTURE, isVan, mergeTrace, trackingWindow } from './plannedRoutes';
+import { SPARSE_WINDOW_S } from '../../driver/driverLink';
 
 const RETRY_MS = 15000;
 const GAP_RELOAD_MS = 60000;
@@ -25,7 +26,8 @@ export const useTrackingWindow = () => {
   return useMemo(() => ({ from: fromTime, to: toTime, now }), [fromTime, toTime, now]);
 };
 
-// The day's positions per van: history of the window, then websocket positions.
+// The day's positions per van: history of the window, then websocket positions. Also the
+// fix times of the last minutes, before thinning: a parked van's trace is two points.
 export default (trackWindow) => {
   const devices = useSelector((state) => state.devices.items);
   const positions = useSelector((state) => state.session.positions);
@@ -61,6 +63,7 @@ export default (trackWindow) => {
       const loaded = (await response.json()).map(toPoint).filter((p) => inWindow(p.time));
       if (storeRef.current === store) {
         entry.trace = mergeTrace(entry.trace, loaded);
+        loaded.forEach((p) => entry.times.add(p.time));
         entry.syncedTo = Math.max(entry.syncedTo ?? since, loaded.at(-1)?.time ?? since);
         setVersion((v) => v + 1);
       }
@@ -85,7 +88,7 @@ export default (trackWindow) => {
       .map(Number)
       .filter((deviceId) => !storeRef.current[deviceId])
       .forEach((deviceId) => {
-        storeRef.current[deviceId] = { trace: [], loading: false };
+        storeRef.current[deviceId] = { trace: [], loading: false, times: new Set() };
         load(deviceId, from);
       });
     // eslint-disable-next-line @eslint-react/exhaustive-deps
@@ -100,6 +103,7 @@ export default (trackWindow) => {
       if (entry && inWindow(point.time) && entry.trace.at(-1)?.id !== point.id) {
         const previous = entry.trace.at(-1)?.time;
         entry.trace = mergeTrace(entry.trace, [point]);
+        entry.times.add(point.time);
         // Only a live socket keeps the history complete; the catch-up positions fetched
         // after a disconnect leave a gap that the reconnect reload has to fill.
         // A jump of more than GAP_RELOAD_MS means the phone was offline and the server
@@ -133,12 +137,17 @@ export default (trackWindow) => {
   }, [socket, from, to]);
 
   return useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(storeRef.current)
-          .filter(([deviceId]) => devices[deviceId])
-          .map(([deviceId, entry]) => [deviceId, entry.trace]),
-      ),
+    () => {
+      const entries = Object.entries(storeRef.current).filter(([deviceId]) => devices[deviceId]);
+      const cutoff = Date.now() - SPARSE_WINDOW_S * 1000;
+      entries.forEach(([, { times }]) => times.forEach((t) => t < cutoff && times.delete(t)));
+      return {
+        traces: Object.fromEntries(entries.map(([deviceId, entry]) => [deviceId, entry.trace])),
+        fixTimes: Object.fromEntries(
+          entries.map(([deviceId, entry]) => [deviceId, [...entry.times]]),
+        ),
+      };
+    },
     // eslint-disable-next-line @eslint-react/exhaustive-deps
     [version, devices],
   );
