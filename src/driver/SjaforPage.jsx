@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { Box, Paper, Typography } from '@mui/material';
+import { Alert, Box, Paper, Typography } from '@mui/material';
 import { LngLatBounds } from 'maplibre-gl';
 import MapView, { map } from '../map/core/MapView';
 import MapPlannedRoutes, { useRouteIndex } from '../map/main/MapPlannedRoutes';
@@ -10,6 +10,7 @@ import MapPositionMarkers from '../map/MapPositionMarkers';
 import MapScale from '../map/MapScale';
 import { isVan, mainRouteOf } from '../map/main/plannedRoutes';
 import DriverSetup, { TrackingStatus, useTrackingStatus } from './DriverSetup';
+import { sparseVanIds } from './driverLink';
 import useMessages from './useMessages';
 import MessagePanel from './MessagePanel';
 import MessagePins from './MessagePins';
@@ -41,7 +42,8 @@ const SjaforPage = () => {
   const messages = useMessages(known ? String(deviceId) : null);
 
   const trackWindow = useTrackingWindow();
-  const { traces } = useDayTraces(trackWindow);
+  const { traces, fixTimes } = useDayTraces(trackWindow);
+  const sparse = sparseVanIds(traces, fixTimes, trackWindow).includes(deviceId);
   const routes = useRouteIndex();
   useFitRoute(known ? routes : null, mainRouteOf(device));
 
@@ -64,6 +66,11 @@ const SjaforPage = () => {
       <Paper square elevation={2} sx={{ px: 2, py: 1, zIndex: 3 }}>
         <Typography variant="h6">{device.name}</Typography>
         <TrackingStatus status={status} />
+        {sparse && (
+          <Alert severity="warning" sx={{ mt: 0.5, py: 0 }}>
+            Telefonen sender få posisjoner. Sjekk oppsettet nederst på siden, særlig steg 2 og 3.
+          </Alert>
+        )}
       </Paper>
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
         <MapView hideSettings>
