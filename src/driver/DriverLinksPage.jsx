@@ -49,7 +49,7 @@ const DriverLinksPage = () => {
         </Typography>
       </Box>
       {vans.map((van) => {
-        const link = token && driverLink(window.location.origin, van.id, token);
+        const link = token && driverLink(window.location.origin, van.name, token);
         return (
           <Box
             key={van.id}

@@ -17,8 +17,26 @@ export const STATUS_MAX_AGE_S = 60;
 export const START_LINK = 'org.traccar.client://action/start';
 export const STOP_LINK = 'org.traccar.client://action/stop';
 
-export const driverLink = (origin, deviceId, token) =>
-  `${origin}/sjafor/${deviceId}?${new URLSearchParams({ token })}`;
+// "Bil 1" gives "bil1": the van's address is its name in lower case, without spaces.
+export const vanSlug = (name) => name.toLowerCase().replace(/\s+/g, '');
+
+export const vanBySlug = (devices, slug) =>
+  Object.values(devices).find(
+    (device) => isVan(device) && vanSlug(device.name) === slug?.toLowerCase(),
+  );
+
+// The older form /sjafor/<device id> still opens the driver page.
+export const driverLink = (origin, name, token) =>
+  `${origin}/${encodeURIComponent(vanSlug(name))}?${new URLSearchParams({ token })}`;
+
+// True for an address of the driver page. Before the devices are loaded, every address of
+// one part counts, so the bottom menu never flashes on a driver's phone.
+export const isDriverPath = (pathname, devices, loaded) => {
+  if (pathname.startsWith('/sjafor/')) return true;
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length !== 1) return false;
+  return !loaded || Boolean(vanBySlug(devices, decodeURIComponent(parts[0])));
+};
 
 // The app asks "Apply new configuration?" before it applies these.
 export const configLink = (uniqueId) =>

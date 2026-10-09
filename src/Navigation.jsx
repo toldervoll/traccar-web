@@ -139,6 +139,7 @@ const Navigation = () => {
           <Route path="emulator" element={<EmulatorPage />} />
           <Route path="stream" element={<StreamPage />} />
           <Route path="sjafor/:deviceId" element={<SjaforPage />} />
+          <Route path=":van" element={<SjaforPage />} />
           <Route path="sjaforlenker" element={<DriverLinksPage />} />
 
           <Route path="settings">

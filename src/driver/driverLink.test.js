@@ -9,6 +9,7 @@ import {
   configLink,
   directionsLink,
   driverLink,
+  isDriverPath,
   platformOf,
   eventDayWindow,
   formatAge,
@@ -17,20 +18,44 @@ import {
   sparseVanIds,
   trackingStatus,
   untrackedVans,
+  vanBySlug,
 } from './driverLink.js';
 
 const query = (link) => new URLSearchParams(link.slice(link.indexOf('?') + 1));
 
-test('driverLink puts the device id in the path and the token in the query', () => {
-  const link = new URL(driverLink('https://kart.example', 12, 'abc'));
-  assert.equal(link.pathname, '/sjafor/12');
+test('driverLink puts the van name in the path and the token in the query', () => {
+  const link = new URL(driverLink('https://kart.example', 'Bil 1', 'abc'));
+  assert.equal(link.pathname, '/bil1');
   assert.equal(link.searchParams.get('token'), 'abc');
 });
 
 test('driverLink percent-encodes + / = in the token', () => {
-  const link = driverLink('https://kart.example', 12, 'a+b/c=');
-  assert.ok(link.endsWith('?token=a%2Bb%2Fc%3D'));
+  const link = driverLink('https://kart.example', 'Libero', 'a+b/c=');
+  assert.ok(link.endsWith('/libero?token=a%2Bb%2Fc%3D'));
   assert.equal(new URL(link).searchParams.get('token'), 'a+b/c=');
+});
+
+test('vanBySlug finds a van by its name, not the virtual device', () => {
+  const devices = {
+    4: { id: 4, name: 'Bil 1' },
+    12: { id: 12, name: 'Libero' },
+    14: { id: 14, name: 'Manuell markering', attributes: { manualMarks: true } },
+  };
+  assert.equal(vanBySlug(devices, 'bil1').id, 4);
+  assert.equal(vanBySlug(devices, 'Libero').id, 12);
+  assert.equal(vanBySlug(devices, 'manuellmarkering'), undefined);
+  assert.equal(vanBySlug(devices, undefined), undefined);
+  assert.equal(new URL(driverLink('https://kart.example', 'Bil 1', 't')).pathname, '/bil1');
+});
+
+test('isDriverPath: van addresses and /sjafor/, not other pages once loaded', () => {
+  const devices = { 4: { id: 4, name: 'Bil 1' } };
+  assert.equal(isDriverPath('/sjafor/4', devices, true), true);
+  assert.equal(isDriverPath('/bil1', devices, true), true);
+  assert.equal(isDriverPath('/replay', devices, true), false);
+  assert.equal(isDriverPath('/', devices, true), false);
+  assert.equal(isDriverPath('/settings/devices', {}, false), false);
+  assert.equal(isDriverPath('/bil1', {}, false), true);
 });
 
 test('configLink carries the intake address, the id and the settings', () => {

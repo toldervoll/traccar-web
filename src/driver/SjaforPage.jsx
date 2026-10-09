@@ -10,7 +10,7 @@ import MapPositionMarkers from '../map/MapPositionMarkers';
 import MapScale from '../map/MapScale';
 import { isVan, mainRouteOf } from '../map/main/plannedRoutes';
 import DriverSetup, { TrackingStatus, useTrackingStatus } from './DriverSetup';
-import { sparseVanIds } from './driverLink';
+import { sparseVanIds, vanBySlug } from './driverLink';
 import useMessages from './useMessages';
 import MessagePanel from './MessagePanel';
 import MessagePins from './MessagePins';
@@ -31,9 +31,7 @@ const useFitRoute = (routes, route) => {
   }, [routes, route]);
 };
 
-const SjaforPage = () => {
-  const deviceId = Number(useParams().deviceId);
-  const loaded = useSelector((state) => state.devices.loaded);
+const SjaforPage = ({ deviceId }) => {
   const devices = useSelector((state) => state.devices.items);
   const positions = useSelector((state) => state.session.positions);
   const device = devices[deviceId];
@@ -52,7 +50,6 @@ const SjaforPage = () => {
     [positions, devices],
   );
 
-  if (!loaded) return null;
   if (!known) {
     return (
       <Typography variant="h6" sx={{ p: 2 }}>
@@ -105,4 +102,14 @@ const SjaforPage = () => {
   );
 };
 
-export default SjaforPage;
+// The van comes from its name (/bil1) or from its device id (/sjafor/4). The page mounts
+// when the devices are loaded, so its state starts from the right van.
+const SjaforRoute = () => {
+  const { deviceId, van } = useParams();
+  const loaded = useSelector((state) => state.devices.loaded);
+  const devices = useSelector((state) => state.devices.items);
+  if (!loaded) return null;
+  return <SjaforPage deviceId={deviceId ? Number(deviceId) : vanBySlug(devices, van)?.id} />;
+};
+
+export default SjaforRoute;
