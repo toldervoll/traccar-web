@@ -12,6 +12,7 @@ import MotionController from './main/MotionController';
 import TermsDialog from './common/components/TermsDialog';
 import Loader from './common/components/Loader';
 import fetchOrThrow from './common/util/fetchOrThrow';
+import { isDriverPath } from './driver/driverLink';
 
 const useStyles = makeStyles()(() => ({
   page: {
@@ -38,6 +39,8 @@ const App = () => {
   const newServer = useSelector((state) => state.session.server.newServer);
   const termsUrl = useSelector((state) => state.session.server.attributes.termsUrl);
   const user = useSelector((state) => state.session.user);
+  const devices = useSelector((state) => state.devices.items);
+  const devicesLoaded = useSelector((state) => state.devices.loaded);
 
   const acceptTerms = useCatch(async () => {
     const response = await fetchOrThrow(`/api/users/${user.id}`, {
@@ -82,7 +85,7 @@ const App = () => {
       <div className={classes.page}>
         <Outlet />
       </div>
-      {!desktop && !pathname.startsWith('/sjafor/') && (
+      {!desktop && !isDriverPath(pathname, devices, devicesLoaded) && (
         <div className={classes.menu}>
           <BottomMenu />
         </div>
