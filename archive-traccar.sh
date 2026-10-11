@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PROJECT="koredu-traccar"
+ACCOUNT="thomas.oldervoll@gmail.com"
 ZONE="europe-north1-b"
 VM_NAME="traccar-vm"
 BUCKET="gs://koredu-traccar-backup"
@@ -18,6 +20,7 @@ mkdir -p "${LOCAL_BACKUP_DIR}"
 
 echo "==> Creating PostgreSQL backup on VM"
 gcloud compute ssh "${VM_NAME}" \
+  --account="${ACCOUNT}" --project="${PROJECT}" \
   --zone="${ZONE}" \
   --command="
     set -euo pipefail
@@ -29,29 +32,33 @@ gcloud compute ssh "${VM_NAME}" \
 
 echo "==> Copying backup from VM to local machine"
 gcloud compute scp \
+  --account="${ACCOUNT}" --project="${PROJECT}" \
   --zone="${ZONE}" \
   "${VM_NAME}:~/backup/${REMOTE_DUMP_NAME}" \
   "${LOCAL_DUMP_PATH}"
 
 echo "==> Uploading backup to Cloud Storage"
 gcloud storage cp \
+  --account="${ACCOUNT}" --project="${PROJECT}" \
   "${LOCAL_DUMP_PATH}" \
   "${BUCKET}/"
 
 echo "==> Determining boot disk name"
 DISK_NAME="$(
   gcloud compute instances describe "${VM_NAME}" \
+    --account="${ACCOUNT}" --project="${PROJECT}" \
     --zone="${ZONE}" \
     --format='get(disks[0].source.basename())'
 )"
 
 echo "==> Creating disk snapshot"
 gcloud compute disks snapshot "${DISK_NAME}" \
+  --account="${ACCOUNT}" --project="${PROJECT}" \
   --zone="${ZONE}" \
   --snapshot-names="${VM_NAME}-boot-${SNAPSHOT_DATE}"
 
 echo "==> Stopping VM"
-gcloud compute instances stop "${VM_NAME}" --zone="${ZONE}"
+gcloud compute instances stop "${VM_NAME}" --account="${ACCOUNT}" --project="${PROJECT}" --zone="${ZONE}"
 
 echo
 echo "Done."
